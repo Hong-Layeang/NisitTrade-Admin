@@ -11,10 +11,20 @@ export default (sequelize, DataTypes) => {
     },
     password_hash: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    password_set: {
+      type: DataTypes.BOOLEAN,
       allowNull: false,
+      defaultValue: false,
     },
     profile_image: {
       type: DataTypes.STRING,
+    },
+    provider: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'local',
     },
     role: {
       type: DataTypes.ENUM('user', 'admin'),
