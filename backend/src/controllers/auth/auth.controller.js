@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import models from '../../models/index.js';
 
 const PASSWORD_HASH_COST = 12;
-const JWT_EXPIRY = '7d';
+const JWT_EXPIRY = '60d';
 
 /**
  * Helper: Get JWT secret from environment

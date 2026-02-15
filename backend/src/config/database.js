@@ -10,8 +10,14 @@ if (!databaseUrl) {
 }
 
 const connectDB = new Sequelize(databaseUrl, {
-  dialect: 'mysql',
+  dialect: 'postgres',
   logging: false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false, 
+    },
+  },
   pool: {
     max: 10,
     min: 0,
@@ -21,7 +27,13 @@ const connectDB = new Sequelize(databaseUrl, {
 });
 
 export const testConnection = async () => {
-  await connectDB.authenticate();
+  try {
+    await connectDB.authenticate();
+    console.log('✅ Database connected successfully!');
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    throw error;
+  }
 };
 
 export default connectDB;
