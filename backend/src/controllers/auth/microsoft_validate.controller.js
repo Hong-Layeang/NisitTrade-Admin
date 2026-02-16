@@ -68,7 +68,7 @@ export default async function microsoftValidateController(req, res) {
   try {
     const idToken = req?.body?.idToken;
     if (!idToken || typeof idToken !== 'string') {
-      return res.status(400).json({ valid: false, msg: 'idToken required' });
+      return res.status(400).json({ valid: false, msg: 'Invalid request' });
     }
 
     // Get Microsoft configuration
@@ -77,7 +77,7 @@ export default async function microsoftValidateController(req, res) {
       ({ tenantId, clientId } = getMicrosoftConfig());
     } catch (err) {
       console.error('Microsoft config error:', err.message);
-      return res.status(500).json({ valid: false, msg: 'Microsoft auth not configured' });
+      return res.status(500).json({ valid: false, msg: 'Internal server error' });
     }
 
     // Verify idToken against Microsoft JWKS
@@ -86,20 +86,20 @@ export default async function microsoftValidateController(req, res) {
       msPayload = await jwtVerifyMicrosoftIdToken(idToken, tenantId, clientId);
     } catch (err) {
       console.error('Token verification failed:', err.message);
-      return res.status(401).json({ valid: false, msg: 'Invalid Microsoft token' });
+      return res.status(401).json({ valid: false, msg: 'Authentication failed' });
     }
 
     // Extract and normalize email
     const rawEmail = extractEmail(msPayload);
     if (!rawEmail) {
-      return res.status(401).json({ valid: false, msg: 'Invalid Microsoft token' });
+      return res.status(401).json({ valid: false, msg: 'Authentication failed' });
     }
     const email = normalizeEmail(rawEmail);
 
     // Check domain is allowed
     const allowedDomains = getAllowedDomains();
     if (allowedDomains.length && !isAllowedDomain(email, allowedDomains)) {
-      return res.status(403).json({ valid: false, msg: 'Domain not allowed' });
+      return res.status(403).json({ valid: false, msg: 'Authentication failed' });
     }
 
     // Find or create user
@@ -108,7 +108,7 @@ export default async function microsoftValidateController(req, res) {
 
     // Prevent admin accounts from using Microsoft login
     if (user && user.role === 'admin') {
-      return res.status(403).json({ valid: false, msg: 'Admin must use admin login' });
+      return res.status(403).json({ valid: false, msg: 'Authentication failed' });
     }
 
     // Create user if first login
@@ -137,7 +137,7 @@ export default async function microsoftValidateController(req, res) {
       });
     } catch (err) {
       console.error('Token generation error:', err.message);
-      return res.status(500).json({ valid: false, msg: 'Token generation failed' });
+      return res.status(500).json({ valid: false, msg: 'Internal server error' });
     }
 
     return res.json({

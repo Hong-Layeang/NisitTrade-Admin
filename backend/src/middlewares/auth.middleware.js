@@ -21,12 +21,12 @@ export function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ msg: 'No token provided' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      return res.status(401).json({ msg: 'No token provided' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
 
     const secret = process.env.JWT_SECRET;
@@ -42,12 +42,12 @@ export function authMiddleware(req, res, next) {
   } catch (error) {
     // Handle expired tokens, invalid signatures, etc.
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ msg: 'Token expired' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ msg: 'Invalid token' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
-    return res.status(401).json({ msg: 'Invalid token' });
+    return res.status(401).json({ msg: 'Unauthorized' });
   }
 }
 
@@ -64,11 +64,11 @@ export function requireRole(requiredRole) {
 
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ msg: 'No user attached to request' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ msg: 'Insufficient permissions' });
+      return res.status(403).json({ msg: 'Forbidden' });
     }
 
     return next();

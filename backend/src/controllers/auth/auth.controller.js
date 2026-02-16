@@ -118,7 +118,7 @@ export async function setPasswordController(req, res) {
     const { User } = models;
     const user = await User.findByPk(userId);
     if (!user) {
-      return res.status(404).json({ success: false, msg: 'User not found' });
+      return res.status(401).json({ success: false, msg: 'Unauthorized' });
     }
 
     // Prevent overwriting existing password
@@ -188,15 +188,12 @@ export async function userLoginController(req, res) {
 
     // Ensure user role is 'user' (not admin)
     if (user.role !== 'user') {
-      return res.status(403).json({ valid: false, msg: 'Use admin login for admin accounts' });
+      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
     // Require password to be set
     if (user.password_set !== true) {
-      return res.status(409).json({
-        valid: false,
-        msg: 'Please complete Microsoft registration to set password',
-      });
+      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
     // Compare password with stored hash
@@ -247,18 +244,18 @@ export async function adminLoginController(req, res) {
 
     // Check if user exists and is admin
     if (!user || user.role !== 'admin') {
-      return res.status(401).json({ valid: false, msg: 'Invalid admin credentials' });
+      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
     // Admins must have password set
     if (user.password_set !== true) {
-      return res.status(401).json({ valid: false, msg: 'Invalid admin credentials' });
+      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
     // Compare password with stored hash
     const isValidPassword = await comparePassword(password, user.password_hash);
     if (!isValidPassword) {
-      return res.status(401).json({ valid: false, msg: 'Invalid admin credentials' });
+      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
     // Generate JWT token
