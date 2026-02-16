@@ -9,7 +9,8 @@ import messageRoutes from '../src/routes/message.routes.js';
 import productRoutes from '../src/routes/product.routes.js';
 import universityRoutes from '../src/routes/university.routes.js';
 import userRoutes from '../src/routes/user.routes.js';
-import { testConnection } from '../src/config/database.js';
+import connectDB, { testConnection } from '../src/config/database.js';
+import '../src/models/index.js';
 
 dotenv.config();
 
@@ -30,9 +31,14 @@ router.use('/api/products', productRoutes);
 router.use('/api/conversations', conversationRoutes);
 router.use('/api/messages', messageRoutes);
 
+app.use(router);
+
 const startServer = async () => {
     try {
         await testConnection();
+        if (process.env.NODE_ENV !== 'production') {
+            await connectDB.sync();
+        }
         console.log('Database connected');
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
