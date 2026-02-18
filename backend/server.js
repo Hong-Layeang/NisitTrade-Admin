@@ -2,14 +2,15 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
-import authRoutes from '../src/routes/auth.routes.js';
-import categoryRoutes from '../src/routes/category.routes.js';
-import conversationRoutes from '../src/routes/conversation.routes.js';
-import messageRoutes from '../src/routes/message.routes.js';
-import productRoutes from '../src/routes/product.routes.js';
-import universityRoutes from '../src/routes/university.routes.js';
-import userRoutes from '../src/routes/user.routes.js';
-import { testConnection } from '../src/config/database.js';
+import authRoutes from './src/routes/auth.routes.js';
+import categoryRoutes from './src/routes/category.routes.js';
+import conversationRoutes from './src/routes/conversation.routes.js';
+import messageRoutes from './src/routes/message.routes.js';
+import productRoutes from './src/routes/product.routes.js';
+import universityRoutes from './src/routes/university.routes.js';
+import userRoutes from './src/routes/user.routes.js';
+import { testConnection } from './src/config/database.js';
+import models from './src/models/index.js';
 
 dotenv.config();
 
@@ -30,10 +31,18 @@ router.use('/api/products', productRoutes);
 router.use('/api/conversations', conversationRoutes);
 router.use('/api/messages', messageRoutes);
 
+// mount to router app
+app.use(router);
+
 const startServer = async () => {
     try {
         await testConnection();
         console.log('Database connected');
+        // Sync models (drops and recreates all tables in development)
+        await models.sequelize.sync({ force: true });
+        console.log('Tables synced');
+
+
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
@@ -42,5 +51,6 @@ const startServer = async () => {
         process.exit(1);
     }
 };
+
 
 startServer();
