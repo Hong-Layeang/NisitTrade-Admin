@@ -40,6 +40,11 @@ const startServer = async () => {
             await connectDB.sync();
         }
         console.log('Database connected');
+        // Sync models (drops and recreates all tables in development)
+        await models.sequelize.sync({ force: true });
+        console.log('Tables synced');
+
+
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
@@ -48,5 +53,6 @@ const startServer = async () => {
         process.exit(1);
     }
 };
+
 
 startServer();

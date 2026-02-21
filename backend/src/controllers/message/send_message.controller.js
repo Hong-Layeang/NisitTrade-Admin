@@ -1,3 +1,3 @@
-export default function sendMessageController() {
+export default function sendMessageController(req, res) {
     
 }
