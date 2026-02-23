@@ -1,0 +1,153 @@
+:root {
+  --primary: #0ea5e9;
+}
+
+.table-card {
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 10px;
+}
+
+.searchbox input,
+.select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 1010px;
+}
+
+/* CRITICAL: th and td MUST be identical */
+.admin-table th,
+.admin-table td {
+  padding: 12px 16px;
+  box-sizing: border-box;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* header */
+.admin-table thead th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #64748b;
+  text-align: left;
+}
+
+/* alignment */
+.admin-table th:nth-child(4),
+.admin-table td:nth-child(4) {
+  text-align: right;
+}
+
+.admin-table th:nth-child(6),
+.admin-table td:nth-child(6) {
+  text-align: center;
+}
+
+/* rows */
+.admin-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-table tbody tr:hover {
+  background: #f9fbff;
+}
+
+.th-right,
+.td-right {
+  text-align: right;
+}
+
+.th-center,
+.td-center {
+  text-align: center;
+}
+
+.admin-table thead {
+  background: #f8fafc;
+}
+
+.admin-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-table tbody tr:hover {
+  background: #f9fbff;
+}
+
+.cell-muted {
+  font-weight: 600;
+}
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.status-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.sold {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.actions {
+  text-align: center;
+}
+
+.actions button {
+  margin: 0 4px;
+}
+
+.btn-icon-xs {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-icon-xs.edit {
+  color: #0ea5e9;
+}
+
+.btn-icon-xs.danger {
+  color: #ef4444;
+}

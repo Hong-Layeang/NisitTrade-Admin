@@ -1,0 +1,64 @@
+.app-header {
+  background: #ffffff;
+  border-bottom: 1px solid #eef1f5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: px 10px;
+
+  /* pull to edges of main-content without changing layout */
+  margin: -15px;
+  margin-bottom: 16px;
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+}
+
+.logo-badge {
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  overflow: hidden; /* rounded logos clip well if you add radius later */
+}
+
+.app-title {
+  font-weight: 700;
+  color: #0ea5e9;
+  font-size: 25px;
+  margin-left: 8px;
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-btn {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: #334155;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: #f8fafc;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e6f4ff;
+  color: #1d4ed8;
+  display: grid;
+  place-items: center;
+  margin-left: 6px;
+}
