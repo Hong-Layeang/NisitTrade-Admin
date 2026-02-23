@@ -1,19 +1,38 @@
-import category from "../../models/category.js";
-import models from "../../models/index.js";
-import message from "../../models/message.js";
+import models from '../../models/index.js';
 
-const { Category } = models;
-export const deleteCategoryController = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const category = await Category.findByPk(id);
+const { Category, Product } = models;
 
-        if (!category) {
-            return res.status(404).json({ message: "Category not found!" });
-        }
-        await category.destroy();
-        res.status(200).json({ message: "Category delete sucessfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+export default async function deleteCategoryController(req, res) {
+  try {
+    const { id } = req.params;
+
+    const category = await Category.findByPk(id);
+
+    if (!category) {
+      return res.status(404).json({ 
+        message: 'Category not found' 
+      });
     }
+
+    // Check if category has products
+    const productCount = await Product.count({ 
+      where: { category_id: id } 
+    });
+
+    if (productCount > 0) {
+      return res.status(409).json({ 
+        message: `Cannot delete category with ${productCount} associated products` 
+      });
+    }
+
+    await category.destroy();
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ 
+      message: 'Failed to delete category',
+      error: error.message 
+    });
+  }
 }

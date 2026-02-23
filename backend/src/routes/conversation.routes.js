@@ -4,12 +4,13 @@ import createConversationController from '../controllers/conversation/create_con
 import listConversationsController from '../controllers/conversation/list_conversations.controller.js';
 import getConversationController from '../controllers/conversation/get_conversation.controller.js';
 import getConversationParticipantsController from '../controllers/conversation/get_conversation_participants.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/', createConversationController); // post
-router.get('/', listConversationsController); // get
-router.get('/:id', getConversationController); // get
-router.get('/:id/participants', getConversationParticipantsController); // get
+router.post('/', authMiddleware, createConversationController); // post
+router.get('/', authMiddleware, listConversationsController); // get
+router.get('/:id', authMiddleware, getConversationController); // get
+router.get('/:id/participants', authMiddleware, getConversationParticipantsController); // get
 
 export default router;

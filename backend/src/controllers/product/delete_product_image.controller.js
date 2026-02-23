@@ -1,15 +1,49 @@
 import models from '../../models/index.js';
 
-export const deleteProductImageController = async (req, res) => {
+const { Product, ProductImage } = models;
+
+export default async function deleteProductImageController(req, res) {
   try {
-    const { id } = req.params;
+    const { id, imageId } = req.params;
+    const user_id = req.user?.id;
+    const user_role = req.user?.role;
 
-    const deletedRows = await models.ProductImage.destroy({ where: { id } });
-    if (!deletedRows) return res.status(404).json({ message: 'Product image not found' });
+    const product = await Product.findByPk(id);
 
-    res.json({ message: 'Product image deleted' });
+    if (!product) {
+      return res.status(404).json({ 
+        message: 'Product not found' 
+      });
+    }
+
+    // Check if user owns the product
+    if (user_id && product.user_id !== user_id && user_role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'You do not have permission to delete images from this product' 
+      });
+    }
+
+    const productImage = await ProductImage.findOne({
+      where: {
+        id: imageId,
+        product_id: id
+      }
+    });
+
+    if (!productImage) {
+      return res.status(404).json({ 
+        message: 'Product image not found' 
+      });
+    }
+
+    await productImage.destroy();
+
+    res.status(204).send();
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error deleting product image:', error);
+    res.status(500).json({ 
+      message: 'Failed to delete product image',
+      error: error.message 
+    });
   }
-};
+}

@@ -1,25 +1,69 @@
 import models from '../../models/index.js';
 
-export const updateProductStatusController = async (req, res) => {
+const { Product, User, Category, ProductImage } = models;
+
+const VALID_STATUSES = ['available', 'reserved', 'sold', 'hidden'];
+
+export default async function updateProductStatusController(req, res) {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const user_id = req.user?.id;
+    const user_role = req.user?.role;
 
-    if (!['available', 'reserved', 'sold'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status value' });
+    if (!status) {
+      return res.status(400).json({ 
+        message: 'Status is required' 
+      });
     }
 
-    const [updatedRows] = await models.Product.update(
-      { status },
-      { where: { id } }
-    );
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ 
+        message: `Status must be one of: ${VALID_STATUSES.join(', ')}` 
+      });
+    }
 
-    if (updatedRows === 0) return res.status(404).json({ message: 'Product not found' });
+    const product = await Product.findByPk(id);
 
-    const updatedProduct = await models.Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ 
+        message: 'Product not found' 
+      });
+    }
+
+    // Check if user owns the product
+    if (user_id && product.user_id !== user_id && user_role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'You do not have permission to update this product status' 
+      });
+    }
+
+    await product.update({ status });
+
+    // Fetch updated product with associations
+    const updatedProduct = await Product.findByPk(id, {
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
+        },
+        {
+          model: Category,
+          attributes: ['id', 'name', 'created_at', 'updated_at']
+        },
+        {
+          model: ProductImage,
+          attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+        }
+      ]
+    });
+
     res.json(updatedProduct);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error updating product status:', error);
+    res.status(500).json({ 
+      message: 'Failed to update product status',
+      error: error.message 
+    });
   }
-};
+}

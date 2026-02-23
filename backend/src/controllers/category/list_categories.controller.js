@@ -1,12 +1,19 @@
-import models from "../../models/index.js";
+import models from '../../models/index.js';
 
 const { Category } = models;
 
-export const listCategoriesController = async (req, res) => {
-    try {
-        const categories = await Category.findAll();
-        res.status(200).json(categories);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+export default async function listCategoriesController(req, res) {
+  try {
+    const categories = await Category.findAll({
+      order: [['name', 'ASC']],
+    });
+
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch categories',
+      error: error.message 
+    });
+  }
+}

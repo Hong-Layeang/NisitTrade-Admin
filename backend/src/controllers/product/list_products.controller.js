@@ -1,14 +1,85 @@
 import models from '../../models/index.js';
+import { Op } from 'sequelize';
 
-export const listProductsController = async (req, res) => {
+const { Product, User, Category, ProductImage, Like, Comment } = models;
+
+export default async function listProductsController(req, res) {
   try {
-    const products = await models.Product.findAll({
-      include: [{ model: models.ProductImage }],
+    const { 
+      category_id, 
+      status, 
+      search, 
+      limit = 50, 
+      offset = 0 
+    } = req.query;
+    const requesterRole = req.user?.role;
+
+    const where = {};
+
+    // Filter by category
+    if (category_id) {
+      where.category_id = category_id;
+    }
+
+    // Filter by status
+    if (status) {
+      if (status === 'hidden' && requesterRole !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      where.status = status;
+    } else {
+      where.status = { [Op.ne]: 'hidden' };
+    }
+
+    // Search in title and description
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const products = await Product.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
+        },
+        {
+          model: Category,
+          attributes: ['id', 'name', 'created_at', 'updated_at']
+        },
+        {
+          model: ProductImage,
+          attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+        },
+        {
+          model: Like,
+          attributes: ['id', 'user_id', 'product_id', 'created_at', 'updated_at'],
+          include: [
+            {
+              model: User,
+              attributes: ['id', 'full_name', 'profile_image']
+            }
+          ]
+        },
+        {
+          model: Comment,
+          attributes: ['id', 'content', 'rating', 'user_id', 'product_id', 'created_at', 'updated_at']
+        }
+      ],
       order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
     });
+
     res.json(products);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching products:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch products',
+      error: error.message 
+    });
   }
-};
+}

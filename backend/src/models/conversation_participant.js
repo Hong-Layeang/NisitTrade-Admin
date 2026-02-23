@@ -8,6 +8,12 @@ export default (sequelize, DataTypes) => {
     tableName: 'conversation_participants',
     timestamps: false,
     underscored: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['conversation_id', 'user_id']
+      }
+    ],
   });
 
   ConversationParticipant.associate = models => {

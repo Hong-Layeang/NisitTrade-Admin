@@ -12,7 +12,7 @@ export default (sequelize, DataTypes) => {
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('available', 'reserved', 'sold'),
+      type: DataTypes.ENUM('available', 'reserved', 'sold', 'hidden'),
       defaultValue: 'available',
     },
   }, {
@@ -31,6 +31,26 @@ export default (sequelize, DataTypes) => {
     });
 
     Product.hasMany(models.ProductImage, {
+      foreignKey: 'product_id',
+      onDelete: 'CASCADE',
+    });
+
+    Product.hasMany(models.Like, {
+      foreignKey: 'product_id',
+      onDelete: 'CASCADE',
+    });
+
+    Product.hasMany(models.Comment, {
+      foreignKey: 'product_id',
+      onDelete: 'CASCADE',
+    });
+
+    Product.hasMany(models.SavedListing, {
+      foreignKey: 'product_id',
+      onDelete: 'CASCADE',
+    });
+
+    Product.hasMany(models.ProductReport, {
       foreignKey: 'product_id',
       onDelete: 'CASCADE',
     });

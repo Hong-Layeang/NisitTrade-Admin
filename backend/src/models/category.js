@@ -5,6 +5,10 @@ export default (sequelize, DataTypes) => {
       allowNull: false,
       unique: true,
     },
+    image_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   }, {
     tableName: 'categories',
     timestamps: true,

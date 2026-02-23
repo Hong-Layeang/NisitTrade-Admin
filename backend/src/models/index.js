@@ -1,33 +1,41 @@
-import { Sequelize, DataTypes } from 'sequelize';
+import { DataTypes } from 'sequelize';
+
 import connectDB from '../config/database.js';
+import userModel from './user.js';
+import universityModel from './university.js';
+import categoryModel from './category.js';
+import productModel from './product.js';
+import productImageModel from './product_image.js';
+import conversationModel from './conversation.js';
+import conversationParticipantModel from './conversation_participant.js';
+import messageModel from './message.js';
+import messageReadModel from './message_read.js';
+import likeModel from './like.js';
+import commentModel from './comment.js';
+import savedListingModel from './saved_listing.js';
+import productReportModel from './product_report.js';
 
-import UserModel from './user.js';
-import ProductModel from './product.js';
-import CategoryModel from './category.js';
-import UniversityModel from './university.js';
-import ConversationModel from './conversation.js';
-import ConversationParticipantModel from './conversation_participant.js';
-import MessageModel from './message.js';
-import MessageReadModel from './message_read.js';
-import ProductImageModel from './product_image.js';
+const models = {
+  User: userModel(connectDB, DataTypes),
+  University: universityModel(connectDB, DataTypes),
+  Category: categoryModel(connectDB, DataTypes),
+  Product: productModel(connectDB, DataTypes),
+  ProductImage: productImageModel(connectDB, DataTypes),
+  Conversation: conversationModel(connectDB, DataTypes),
+  ConversationParticipant: conversationParticipantModel(connectDB, DataTypes),
+  Message: messageModel(connectDB, DataTypes),
+  MessageRead: messageReadModel(connectDB, DataTypes),
+  Like: likeModel(connectDB, DataTypes),
+  Comment: commentModel(connectDB, DataTypes),
+  SavedListing: savedListingModel(connectDB, DataTypes),
+  ProductReport: productReportModel(connectDB, DataTypes),
+};
 
-const models = {};
+Object.values(models).forEach(model => {
+  if (typeof model.associate === 'function') {
+    model.associate(models);
+  }
+});
 
-// Initialize models
-models.User = UserModel(connectDB, DataTypes);
-models.Product = ProductModel(connectDB, DataTypes);
-models.Category = CategoryModel(connectDB, DataTypes);
-models.University = UniversityModel(connectDB, DataTypes);
-models.Conversation = ConversationModel(connectDB, DataTypes);
-models.ConversationParticipant = ConversationParticipantModel(connectDB, DataTypes);
-models.Message = MessageModel(connectDB, DataTypes);
-models.MessageRead = MessageReadModel(connectDB, DataTypes);
-models.ProductImage = ProductImageModel(connectDB, DataTypes);
-
-// Run associations
-Object.values(models)
-    .filter(model => typeof model.associate === 'function')
-    .forEach(model => model.associate(models));
-
-// **Export both models and Sequelize instance**
-export default { ...models, sequelize: connectDB };
+export { connectDB };
+export default models;

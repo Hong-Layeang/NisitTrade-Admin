@@ -8,6 +8,12 @@ export default (sequelize, DataTypes) => {
     tableName: 'message_reads',
     timestamps: false,
     underscored: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['message_id', 'user_id']
+      }
+    ],
   });
 
   MessageRead.associate = models => {

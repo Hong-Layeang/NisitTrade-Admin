@@ -9,7 +9,7 @@ import {
   extractFullName,
   normalizeEmail,
   isAllowedDomain,
-} from './ms-helpers.js';
+} from '../../utils/helper/ms.helpers.js';
 
 const TOKEN_EXPIRY = '7d';
 
