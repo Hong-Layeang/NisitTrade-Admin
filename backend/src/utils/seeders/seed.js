@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import models from '../models/index.js';
+import models from '../../models/index.js';
 
 const { User, University, Category, Product, ProductImage, Like, Comment } = models;
 
