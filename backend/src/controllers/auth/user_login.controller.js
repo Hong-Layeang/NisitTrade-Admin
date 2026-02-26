@@ -1,10 +1,5 @@
 import models from '../../models/index.js';
-
-import {
-  buildUserResponse,
-  comparePassword,
-  generateToken,
-} from '../../utils/helper/auth.helpers.js';
+import { buildUserResponse, comparePassword, generateToken, } from '../../utils/helper/auth.helpers.js';
 
 export async function userLoginController(req, res) {
   try {

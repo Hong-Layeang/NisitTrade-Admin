@@ -51,15 +51,13 @@ export default async function addProductImagesController(req, res) {
       });
     }
 
-    // Create product images
-    const imagePromises = urlsToSave.map(url => 
-      ProductImage.create({
+    // Create product images in order so created_at/id reflect upload sequence
+    for (const url of urlsToSave) {
+      await ProductImage.create({
         product_id: id,
         image_url: url
-      })
-    );
-
-    await Promise.all(imagePromises);
+      });
+    }
 
     // Fetch updated product with all associations
     const updatedProduct = await Product.findByPk(id, {
@@ -78,6 +76,16 @@ export default async function addProductImagesController(req, res) {
         }
       ]
     });
+
+    if (updatedProduct?.ProductImages) {
+      updatedProduct.ProductImages.sort((a, b) => {
+        const aCreated = new Date(a.createdAt ?? a.created_at ?? 0);
+        const bCreated = new Date(b.createdAt ?? b.created_at ?? 0);
+        const createdDiff = aCreated - bCreated;
+        if (createdDiff !== 0) return createdDiff;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    }
 
     res.json(updatedProduct);
   } catch (error) {

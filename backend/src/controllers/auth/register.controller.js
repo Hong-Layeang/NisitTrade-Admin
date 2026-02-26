@@ -2,45 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 import models from '../../models/index.js';
-
-const PASSWORD_HASH_COST = 12;
-const JWT_EXPIRY = '60d';
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
-  }
-  return secret;
-}
-
-function validatePasswordStrength(password) {
-  if (!password || typeof password !== 'string') {
-    throw new Error('Password is required');
-  }
-
-  if (password.length < 8) {
-    throw new Error('Password must be at least 8 characters');
-  }
-
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /\d/.test(password);
-
-  if (!hasUpperCase || !hasLowerCase || !hasNumber) {
-    throw new Error('Password must contain uppercase, lowercase, and numbers');
-  }
-}
-
-function buildUserResponse(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    full_name: user.full_name,
-    role: user.role,
-    password_set: user.password_set,
-  };
-}
+import { buildUserResponse, generateToken, getJwtSecret, hashPassword, validatePasswordStrength, } from '../../utils/helper/auth.helpers.js';
 
 export default async function registerController(req, res) {
   try {
@@ -81,7 +43,7 @@ export default async function registerController(req, res) {
       return res.status(404).json({ success: false, msg: 'University not found' });
     }
 
-    const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_COST);
+    const passwordHash = await hashPassword(password);
     const user = await User.create({
       full_name: String(full_name).trim(),
       email: normalizedEmail,
@@ -95,7 +57,7 @@ export default async function registerController(req, res) {
     const token = jwt.sign(
       { id: user.id, role: user.role },
       getJwtSecret(),
-      { expiresIn: JWT_EXPIRY }
+      { expiresIn: generateToken({ id: user.id, role: user.role }) }
     );
 
     return res.status(201).json({

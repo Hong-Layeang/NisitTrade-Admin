@@ -1,11 +1,6 @@
 import models from '../../models/index.js';
 
-import {
-  buildUserResponse,
-  generateToken,
-  hashPassword,
-  validatePasswordStrength,
-} from '../../utils/helper/auth.helpers.js';
+import { buildUserResponse, generateToken, hashPassword, validatePasswordStrength, } from '../../utils/helper/auth.helpers.js';
 
 export async function setPasswordController(req, res) {
   try {

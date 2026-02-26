@@ -52,6 +52,16 @@ export default async function getProductController(req, res) {
       });
     }
 
+    if (product?.ProductImages) {
+      product.ProductImages.sort((a, b) => {
+        const aCreated = new Date(a.createdAt ?? a.created_at ?? 0);
+        const bCreated = new Date(b.createdAt ?? b.created_at ?? 0);
+        const createdDiff = aCreated - bCreated;
+        if (createdDiff !== 0) return createdDiff;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    }
+
     if (product.status === 'hidden' && String(product.user_id) !== String(requesterId) && requesterRole !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' });
     }

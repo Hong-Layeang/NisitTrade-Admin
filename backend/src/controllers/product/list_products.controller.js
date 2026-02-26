@@ -74,6 +74,18 @@ export default async function listProductsController(req, res) {
       offset: parseInt(offset)
     });
 
+    products.forEach(product => {
+      if (product?.ProductImages) {
+        product.ProductImages.sort((a, b) => {
+          const aCreated = new Date(a.createdAt ?? a.created_at ?? 0);
+          const bCreated = new Date(b.createdAt ?? b.created_at ?? 0);
+          const createdDiff = aCreated - bCreated;
+          if (createdDiff !== 0) return createdDiff;
+          return (a.id ?? 0) - (b.id ?? 0);
+        });
+      }
+    });
+
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
