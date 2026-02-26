@@ -67,3 +67,4 @@ logs/
 .cache/
 dist/
 build/
+node_modules
