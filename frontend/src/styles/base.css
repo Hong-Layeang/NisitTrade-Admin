@@ -1,0 +1,40 @@
+:root {
+  --primary: #00A3E7;
+  --secondary: #99DAFF;
+
+  /* card tokens */
+  --card-border: #e6e9ef;
+  --card-shadow: 0 6px 16px rgba(17, 24, 39, 0.06);
+  --card-radius: 14px;
+}
+
+body {
+  background: #f4f6f9;
+  margin: 0;
+}
+
+.dashboard-container {
+  display: flex;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 20px;
+}
+
+/* Generic card look applied to your existing blocks */
+.stat-card,
+.chart-card,
+.activity-card {
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
