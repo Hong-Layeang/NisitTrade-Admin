@@ -5,15 +5,16 @@ import sendMessageController from '../controllers/message/send_message.controlle
 import markAsReadController from '../controllers/message/mark_as_read.controller.js';
 import getReadersController from '../controllers/message/get_readers.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { requireRole } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
 // messages in a conversation
-router.get('/conversation/:conversationId', authMiddleware, getMessagesController); // get
-router.post('/conversation/:conversationId', authMiddleware, sendMessageController); // post
+router.get('/conversation/:conversationId', authMiddleware, requireRole('user'), getMessagesController); // get
+router.post('/conversation/:conversationId', authMiddleware, requireRole('user'), sendMessageController); // post
 
 // read receipts
-router.post('/:id/read', authMiddleware, markAsReadController); // post
-router.get('/:id/readers', authMiddleware, getReadersController); // get
+router.post('/:id/read', authMiddleware, requireRole('user'), markAsReadController); // post
+router.get('/:id/readers', authMiddleware, requireRole('user'), getReadersController); // get
 
 export default router;

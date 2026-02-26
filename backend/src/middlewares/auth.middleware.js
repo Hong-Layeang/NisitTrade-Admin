@@ -1,22 +1,5 @@
 import jwt from 'jsonwebtoken';
 
-/**
- * Auth Middleware
- * Verifies server JWT token from Authorization header
- * Attaches decoded payload to req.user for downstream handlers
- */
-
-/**
- * Middleware: Verify JWT and attach user to request
- * Header format: Authorization: Bearer <server_jwt>
- * On success: req.user = { id, role, ... }
- * On failure: 401 Unauthorized
- *
- * @param {object} req - Express request
- * @param {object} res - Express response
- * @param {function} next - Express next middleware
- * @returns {void}
- */
 export function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -49,28 +32,4 @@ export function authMiddleware(req, res, next) {
     }
     return res.status(401).json({ msg: 'Unauthorized' });
   }
-}
-
-/**
- * Middleware: Verify user has required role
- * Must be used after authMiddleware
- * Returns 403 Forbidden if role does not match
- *
- * @param {string|string[]} requiredRole - Single role or array of allowed roles
- * @returns {function} Express middleware function
- */
-export function requireRole(requiredRole) {
-  const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ msg: 'Unauthorized' });
-    }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ msg: 'Forbidden' });
-    }
-
-    return next();
-  };
 }

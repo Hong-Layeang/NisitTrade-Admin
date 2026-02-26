@@ -5,7 +5,8 @@ import getCategoryController from '../controllers/category/get_category.controll
 import createCategoryController from '../controllers/category/create_category.controller.js';
 import updateCategoryController from '../controllers/category/update_category.controller.js';
 import deleteCategoryController from '../controllers/category/delete_category.controller.js';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { requireRole } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
