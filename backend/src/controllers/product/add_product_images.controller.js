@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { extractS3Key, enrichProductWithPresignedUrls, } from '../../utils/s3-presigned-url.js';
 
 const { Product, ProductImage, User, Category } = models;
 
@@ -7,18 +8,19 @@ const MAX_IMAGES = 8;
 export default async function addProductImagesController(req, res) {
   try {
     const { id } = req.params;
-    const { image_urls } = req.body; // Optional array of image URLs
+    const { image_urls } = req.body; // Optional array of S3 keys
     const user_id = req.user?.id;
     const user_role = req.user?.role;
 
-    const uploadedUrls = Array.isArray(req.files)
-      ? req.files.map(file => file.path)
+    // Extract S3 keys from uploaded files
+    const uploadedKeys = Array.isArray(req.files)
+      ? req.files.map(file => file.key || extractS3Key(file.location))
       : [];
 
-    const bodyUrls = Array.isArray(image_urls) ? image_urls : [];
-    const urlsToSave = [...uploadedUrls, ...bodyUrls];
+    const bodyKeys = Array.isArray(image_urls) ? image_urls : [];
+    const keysToSave = [...uploadedKeys, ...bodyKeys];
 
-    if (urlsToSave.length === 0) {
+    if (keysToSave.length === 0) {
       return res.status(400).json({ 
         message: 'At least one image is required' 
       });
@@ -43,7 +45,7 @@ export default async function addProductImagesController(req, res) {
 
     // Check total image count
     const currentImageCount = product.ProductImages?.length || 0;
-    const newImageCount = urlsToSave.length;
+    const newImageCount = keysToSave.length;
     
     if (currentImageCount + newImageCount > MAX_IMAGES) {
       return res.status(400).json({ 
@@ -51,11 +53,11 @@ export default async function addProductImagesController(req, res) {
       });
     }
 
-    // Create product images in order so created_at/id reflect upload sequence
-    for (const url of urlsToSave) {
+    // Create product images with S3 keys
+    for (const key of keysToSave) {
       await ProductImage.create({
         product_id: id,
-        image_url: url
+        image_url: key  // Store S3 key
       });
     }
 
@@ -87,7 +89,10 @@ export default async function addProductImagesController(req, res) {
       });
     }
 
-    res.json(updatedProduct);
+    // Add pre-signed URLs before returning
+    const enrichedProduct = await enrichProductWithPresignedUrls(updatedProduct);
+
+    res.json(enrichedProduct);
   } catch (error) {
     console.error('Error adding product images:', error);
     res.status(500).json({ 

@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { enrichProductWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage, Like, Comment } = models;
 
@@ -66,7 +67,10 @@ export default async function getProductController(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    res.json(product);
+    // Enrich with pre-signed URLs
+    const enrichedProduct = await enrichProductWithPresignedUrls(product);
+
+    res.json(enrichedProduct);
   } catch (error) {
     console.error('Error fetching product:', error);
     res.status(500).json({ 

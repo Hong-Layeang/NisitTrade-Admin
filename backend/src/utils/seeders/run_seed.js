@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import seedData from './seed.js';
-import connectDB from '../config/database.js'
+import connectDB from '../../config/database.js'
 
 dotenv.config();
 

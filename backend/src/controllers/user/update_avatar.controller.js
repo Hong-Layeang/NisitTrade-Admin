@@ -20,7 +20,7 @@ export default async function updateAvatarController(req, res) {
       });
     }
 
-    const uploadedUrl = req.file?.path;
+    const uploadedUrl = req.file?.location || req.file?.path;
     const bodyUrl = req.body?.profile_image;
     const profileImage = uploadedUrl || bodyUrl;
 

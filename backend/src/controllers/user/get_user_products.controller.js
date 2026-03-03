@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage } = models;
 
@@ -43,11 +44,14 @@ export default async function getUserProductsController(req, res) {
       offset: parseInt(offset)
     });
 
+    // Enrich all products with pre-signed URLs
+    const enrichedProducts = await enrichProductsWithPresignedUrls(rows);
+
     res.json({
       total: count,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      items: rows
+      items: enrichedProducts
     });
   } catch (error) {
     console.error('Error fetching user products:', error);

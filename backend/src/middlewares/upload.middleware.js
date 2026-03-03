@@ -1,7 +1,7 @@
 import multer from 'multer';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import multerS3 from 'multer-s3';
 
-import cloudinary from '../config/cloudinary.js';
+import s3Client, { AWS_BUCKET_NAME } from '../config/aws.js';
 
 const MAX_PRODUCT_IMAGES = 8;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -15,21 +15,31 @@ const imageFileFilter = (req, file, cb) => {
   return cb(new Error('Unsupported file type. Use JPG, PNG, or WEBP.'));
 };
 
-const avatarStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'nisittrade/avatars',
-    resource_type: 'image',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+const avatarStorage = multerS3({
+  s3: s3Client,
+  bucket: AWS_BUCKET_NAME,
+  metadata: (req, file, cb) => {
+    cb(null, { fieldName: file.fieldname });
+  },
+  key: (req, file, cb) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const filename = `${timestamp}-${randomString}-${file.originalname}`;
+    cb(null, `nisittrade/avatars/${filename}`);
   },
 });
 
-const productImageStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'nisittrade/products',
-    resource_type: 'image',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+const productImageStorage = multerS3({
+  s3: s3Client,
+  bucket: AWS_BUCKET_NAME,
+  metadata: (req, file, cb) => {
+    cb(null, { fieldName: file.fieldname });
+  },
+  key: (req, file, cb) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const filename = `${timestamp}-${randomString}-${file.originalname}`;
+    cb(null, `nisittrade/products/${filename}`);
   },
 });
 

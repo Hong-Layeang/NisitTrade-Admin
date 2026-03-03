@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { enrichProductWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage } = models;
 
@@ -78,7 +79,10 @@ export default async function updateProductController(req, res) {
       ]
     });
 
-    res.json(updatedProduct);
+    // Enrich with pre-signed URLs
+    const enrichedProduct = await enrichProductWithPresignedUrls(updatedProduct);
+
+    res.json(enrichedProduct);
   } catch (error) {
     console.error('Error updating product:', error);
     res.status(500).json({ 

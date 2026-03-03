@@ -1,5 +1,6 @@
 import models from '../../models/index.js';
 import { Op } from 'sequelize';
+import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage, Like, Comment } = models;
 
@@ -86,7 +87,10 @@ export default async function listProductsController(req, res) {
       }
     });
 
-    res.json(products);
+    // Enrich all products with pre-signed URLs
+    const enrichedProducts = await enrichProductsWithPresignedUrls(products);
+
+    res.json(enrichedProducts);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ 
