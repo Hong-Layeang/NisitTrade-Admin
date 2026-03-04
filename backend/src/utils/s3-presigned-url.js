@@ -114,4 +114,22 @@ export function extractS3Key(s3Url) {
   }
 }
 
+/**
+ * Generate a pre-signed URL from a full S3 URL.
+ * Returns the original URL unchanged if it is null/empty or not an S3 URL.
+ * @param {string|null} url - Full S3 URL or any plain URL
+ * @param {number} expirationSeconds
+ * @returns {Promise<string|null>}
+ */
+export async function presignIfS3Url(url, expirationSeconds = DEFAULT_EXPIRATION_SECONDS) {
+  if (!url) return url;
+  try {
+    const s3Key = extractS3Key(url);
+    if (!s3Key) return url;
+    return await generatePresignedUrl(s3Key, expirationSeconds);
+  } catch {
+    return url;
+  }
+}
+
 export default generatePresignedUrl;

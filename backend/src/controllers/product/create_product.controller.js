@@ -42,11 +42,11 @@ export default async function createProductController(req, res) {
       });
     }
 
-    // Verify user exists
+    // Verify user exists (if not, the JWT is stale)
     const user = await User.findByPk(user_id);
     if (!user) {
-      return res.status(404).json({ 
-        message: 'User not found' 
+      return res.status(401).json({ 
+        message: 'User authentication required' 
       });
     }
 

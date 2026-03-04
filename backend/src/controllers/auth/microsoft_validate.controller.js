@@ -41,13 +41,19 @@ export default async function microsoftValidateController(req, res) {
     }
 
     // Find or create user
-    const { User } = models;
+    const { User, University } = models;
     let user = await User.findOne({ where: { email } });
 
     // Prevent admin accounts from using Microsoft login
     if (user && user.role === 'admin') {
       return res.status(403).json({ valid: false, msg: 'Authentication failed' });
     }
+
+    // Resolve university from email domain
+    const emailDomain = email.split('@')[1] ?? '';
+    const university = emailDomain
+      ? await University.findOne({ where: { domain: emailDomain } })
+      : null;
 
     // Create user if first login
     if (!user) {
@@ -59,13 +65,16 @@ export default async function microsoftValidateController(req, res) {
         role: 'user',
         password_hash: null,
         password_set: false,
+        university_id: university?.id ?? null,
       });
+    } else if (!user.university_id && university) {
+      await user.update({ university_id: university.id });
     }
 
-    // Determine if password setup is needed
+    // check if password setup is needed
     const needsPasswordSetup = !user.password_set;
 
-    // Generate server JWT (includes needsPasswordSetup flag)
+    // Generate server JWT
     let token;
     try {
       token = generateToken({

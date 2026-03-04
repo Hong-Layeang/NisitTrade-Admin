@@ -1,6 +1,7 @@
 import models from '../../models/index.js';
+import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
-const { User, University } = models;
+const { User, University, UserFollow } = models;
 
 export default async function currentUserController(req, res) {
   try {
@@ -10,7 +11,7 @@ export default async function currentUserController(req, res) {
     }
 
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'cover_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
       include: [
         {
           model: University,
@@ -20,10 +21,27 @@ export default async function currentUserController(req, res) {
     });
 
     if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
+      return res.status(401).json({ msg: 'Unauthorized' });
     }
 
-    return res.json(user);
+    const [followerCount, followingCount] = await Promise.all([
+      UserFollow.count({ where: { following_id: userId } }),
+      UserFollow.count({ where: { follower_id: userId } }),
+    ]);
+
+    const userData = user.toJSON();
+    const [presignedProfileImage, presignedCoverImage] = await Promise.all([
+      presignIfS3Url(userData.profile_image),
+      presignIfS3Url(userData.cover_image),
+    ]);
+    return res.json({
+      ...userData,
+      profile_image: presignedProfileImage,
+      cover_image: presignedCoverImage,
+      follower_count: followerCount,
+      following_count: followingCount,
+      is_following: false,
+    });
   } catch (error) {
     console.error('currentUser error:', error);
     return res.status(500).json({ msg: 'Internal server error' });

@@ -14,6 +14,7 @@ import likeModel from './like.js';
 import commentModel from './comment.js';
 import savedListingModel from './saved_listing.js';
 import productReportModel from './product_report.js';
+import userFollowModel from './user_follow.js';
 
 const models = {
   User: userModel(connectDB, DataTypes),
@@ -29,6 +30,7 @@ const models = {
   Comment: commentModel(connectDB, DataTypes),
   SavedListing: savedListingModel(connectDB, DataTypes),
   ProductReport: productReportModel(connectDB, DataTypes),
+  UserFollow: userFollowModel(connectDB, DataTypes),
 };
 
 Object.values(models).forEach(model => {

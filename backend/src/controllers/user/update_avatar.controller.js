@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
 const { User } = models;
 
@@ -32,9 +33,11 @@ export default async function updateAvatarController(req, res) {
 
     await user.update({ profile_image: profileImage });
 
+    const presignedProfileImage = await presignIfS3Url(user.profile_image);
+
     res.json({
       id: user.id,
-      profile_image: user.profile_image,
+      profile_image: presignedProfileImage,
       updated_at: user.updated_at
     });
   } catch (error) {

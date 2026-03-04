@@ -5,7 +5,7 @@ const { User, University } = models;
 export default async function updateUserController(req, res) {
   try {
     const { id } = req.params;
-    const { full_name, email, university_id } = req.body;
+    const { full_name, email, university_id, bio, major } = req.body;
     const requesterId = req.user?.id;
     const requesterRole = req.user?.role;
 
@@ -51,10 +51,18 @@ export default async function updateUserController(req, res) {
       updates.university_id = university_id;
     }
 
+    if (bio !== undefined) {
+      updates.bio = bio ? String(bio).trim() : null;
+    }
+
+    if (major !== undefined) {
+      updates.major = major ? String(major).trim() : null;
+    }
+
     await user.update(updates);
 
     const updatedUser = await User.findByPk(id, {
-      attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
       include: [
         {
           model: University,

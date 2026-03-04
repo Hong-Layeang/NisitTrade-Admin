@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { Op } from 'sequelize';
 import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage } = models;
@@ -14,17 +15,21 @@ export default async function getUserProductsController(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    if (String(requesterId) !== String(id) && requesterRole !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Build filter: owner and admins see all their products;
+    // other users only see non-hidden products.
+    const where = { user_id: id };
+    const isOwner = String(requesterId) === String(id);
+    if (!isOwner && requesterRole !== 'admin') {
+      where.status = { [Op.ne]: 'hidden' };
+    }
+
     const { count, rows } = await Product.findAndCountAll({
-      where: { user_id: id },
+      where,
       include: [
         {
           model: User,
@@ -42,6 +47,19 @@ export default async function getUserProductsController(req, res) {
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
+    });
+
+    // Sort ProductImages by created_at ASC (same order as marketplace)
+    rows.forEach(product => {
+      if (product?.ProductImages) {
+        product.ProductImages.sort((a, b) => {
+          const aCreated = new Date(a.createdAt ?? a.created_at ?? 0);
+          const bCreated = new Date(b.createdAt ?? b.created_at ?? 0);
+          const diff = aCreated - bCreated;
+          if (diff !== 0) return diff;
+          return (a.id ?? 0) - (b.id ?? 0);
+        });
+      }
     });
 
     // Enrich all products with pre-signed URLs

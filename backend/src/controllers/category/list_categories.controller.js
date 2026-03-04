@@ -5,7 +5,7 @@ const { Category } = models;
 export default async function listCategoriesController(req, res) {
   try {
     const categories = await Category.findAll({
-      order: [['name', 'ASC']],
+      order: [['id', 'ASC']],
     });
 
     res.json(categories);

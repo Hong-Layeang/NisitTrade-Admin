@@ -838,37 +838,60 @@
 // export default seedData;
 
 
-import { DefaultRetention$ } from '@aws-sdk/client-s3';
 import models from '../../models/index.js';
 
-const { Category } = models;
+const { Category, University } = models;
 
 // ─── Image Helper ────────────────────────────────────────────────────────────
 const img = (id) => `https://images.unsplash.com/photo-${id}?w=600&fit=crop&auto=format&q=80`;
 
 const CATEGORY_IMGS = {
-  electronics: img('1611186871348-b1ce696e52c9'),
-  books:       img('1456513080510-7bf3a84b82f8'),
-  fashion:     img('1620799140408-edc6dcb6d633'),
-  home:        img('1534073828943-f801091bb18c'),
-  vehicles:    img('1568772585407-9361f9bf3a87'),
-  sports:      img('1583454110551-21f2fa2afe61'),
-  food:        img('1495474472287-4d71bcdd2085'),
+  electronics:   img('1611186871348-b1ce696e52c9'),
+  books:         img('1456513080510-7bf3a84b82f8'),
+  fashion:       img('1620799140408-edc6dcb6d633'),
+  furnitures:    img('1505693416388-ac5ce068fe85'),
+  vehicles:      img('1568772585407-9361f9bf3a87'),
+  sports:        img('1583454110551-21f2fa2afe61'),
+  accessory:     img('1523381210434-271e8be1f52b'),
+  beauty:        img('1522335789203-aabd1fc54bc9'),
+  music:         img('1511379938547-c1f69419868d'),
+  pets:          img('1601758124510-52d02ddb7cbd'),
+  toys:          img('1558618666-fcd25c85cd64'),
 };
 
 const seedData = async () => {
   try {
     console.log('🌱 Starting category-only seeding...');
 
+    // Seed universities (find-or-create so re-runs are safe)
+    const [cadt] = await University.findOrCreate({
+      where: { domain: 'student.cadt.edu.kh' },
+      defaults: {
+        name: 'Cambodian Academy of Digital Technology',
+        domain: 'student.cadt.edu.kh',
+      },
+    });
+    console.log(`✅ University seeded: ${cadt.name} (${cadt.domain})`);
+
+    // Drop and recreate the categories table (resets all rows and IDs)
+    await Category.sync({ force: true });
+    console.log('🗑️  Categories table dropped and recreated.');
+
     // This will insert the categories into your database
     const categories = await Category.bulkCreate([
-      { name: 'Electronics',       image_url: CATEGORY_IMGS.electronics },
-      { name: 'Books & Stationery', image_url: CATEGORY_IMGS.books       },
-      { name: 'Fashion',           image_url: CATEGORY_IMGS.fashion     },
-      { name: 'Home & Dorm',       image_url: CATEGORY_IMGS.home        },
-      { name: 'Vehicles',          image_url: CATEGORY_IMGS.vehicles    },
-      { name: 'Sports & Fitness',  image_url: CATEGORY_IMGS.sports      },
-      { name: 'Food & Drinks',     image_url: CATEGORY_IMGS.food        },
+      // ── Default (always visible, first 4) ─────────────────────────────────
+      { name: 'Books',               image_url: CATEGORY_IMGS.books        },
+      { name: 'Clothing',            image_url: CATEGORY_IMGS.fashion      },
+      { name: 'Electronics',         image_url: CATEGORY_IMGS.electronics  },
+      { name: 'Accessory',           image_url: CATEGORY_IMGS.accessory    },
+      // ── Extended (revealed on "See All") ──────────────────────────────────
+      { name: 'Furnitures',          image_url: CATEGORY_IMGS.furnitures   },
+      { name: 'Vehicles',            image_url: CATEGORY_IMGS.vehicles     },
+      { name: 'Sports & Fitness',    image_url: CATEGORY_IMGS.sports       },
+      { name: 'Health & Beauty',     image_url: CATEGORY_IMGS.beauty       },
+      { name: 'Musical Instruments', image_url: CATEGORY_IMGS.music        },
+      { name: 'Pet Supplies',        image_url: CATEGORY_IMGS.pets         },
+      { name: 'Toys & Games',        image_url: CATEGORY_IMGS.toys         },
     ]);
 
     console.log(`✅ Successfully created ${categories.length} categories.`);
