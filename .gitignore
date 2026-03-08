@@ -9,6 +9,12 @@ backend/yarn-error.log*
 backend/dist/
 backend/build/
 
+# Frontend (Node.js / React)
+frontend/node_modules/
+frontend/.env
+frontend/dist/
+frontend/build/
+
 # Frontend (Flutter/Dart)
 frontend/build/
 frontend/.dart_tool/
@@ -67,3 +73,4 @@ logs/
 .cache/
 dist/
 build/
+node_modules/

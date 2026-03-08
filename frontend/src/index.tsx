@@ -2,9 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router-dom";
+import "./styles/tailwind.css";
 
-// Bootstrap + icons
+// Keep only Bootstrap components (modals, grid, etc.)
 import "bootstrap/dist/css/bootstrap.min.css";
+// use bootstrap icons
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const root = ReactDOM.createRoot(
@@ -13,8 +15,10 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
+    <BrowserRouter>   
+      <div className="bg-body min-h-screen overflow-x-hidden">
+        <App />
+      </div>
     </BrowserRouter>
   </React.StrictMode>
 );
