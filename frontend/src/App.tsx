@@ -9,9 +9,6 @@ import Users from "./pages/user.tsx";
 import AdminShop from "./pages/adminshop.tsx";
 import UsersProduct from "./pages/usersProduct.tsx";
 
-// Global styles (your single stylesheet)
-import "./styles/base.css";
-
 function App() {
   return (
     <DashboardLayout>
