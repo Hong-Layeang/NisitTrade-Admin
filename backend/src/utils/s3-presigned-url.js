@@ -99,17 +99,21 @@ export async function enrichProductsWithPresignedUrls(
 }
 
 /**
- * Extract S3 key from a full S3 URL
- * @param {string} s3Url - Full S3 URL
+ * Extract S3 key from a full S3 URL or return the key as-is if it's already a bare key
+ * @param {string} s3Url - Full S3 URL or bare S3 key
  * @returns {string} S3 key
  */
 export function extractS3Key(s3Url) {
+  if (!s3Url) return null;
   try {
     const url = new URL(s3Url);
     // Remove leading slash from pathname
     return url.pathname.substring(1);
   } catch (error) {
-    console.error('Error extracting S3 key from URL:', error);
+    // If it's not a valid URL, assume it's already a bare S3 key
+    if (typeof s3Url === 'string' && s3Url.length > 0) {
+      return s3Url;
+    }
     return null;
   }
 }

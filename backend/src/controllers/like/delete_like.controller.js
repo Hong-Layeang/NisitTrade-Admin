@@ -21,8 +21,8 @@ export default async function deleteLikeController(req, res) {
     }
 
     // Check if user is the owner of the like
-    if (like.user_id !== userId && userRole !== 'admin') {
-      return res.status(403).json({ message: 'You can\'t give like to yourself :)' });
+    if (Number(like.user_id) !== Number(userId) && userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
     }
 
     // Delete the like

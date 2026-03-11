@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
 const { User, University } = models;
 
@@ -52,17 +53,17 @@ export default async function updateUserController(req, res) {
     }
 
     if (bio !== undefined) {
-      updates.bio = bio ? String(bio).trim() : null;
+      updates.bio = String(bio).trim();
     }
 
     if (major !== undefined) {
-      updates.major = major ? String(major).trim() : null;
+      updates.major = String(major).trim();
     }
 
     await user.update(updates);
 
     const updatedUser = await User.findByPk(id, {
-      attributes: ['id', 'full_name', 'email', 'profile_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'cover_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
       include: [
         {
           model: University,
@@ -71,7 +72,17 @@ export default async function updateUserController(req, res) {
       ]
     });
 
-    res.json(updatedUser);
+    const updatedUserJson = updatedUser.toJSON();
+    const [presignedProfileImage, presignedCoverImage] = await Promise.all([
+      presignIfS3Url(updatedUserJson.profile_image),
+      presignIfS3Url(updatedUserJson.cover_image),
+    ]);
+
+    res.json({
+      ...updatedUserJson,
+      profile_image: presignedProfileImage,
+      cover_image: presignedCoverImage,
+    });
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({

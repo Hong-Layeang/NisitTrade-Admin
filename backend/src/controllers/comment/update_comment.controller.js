@@ -13,7 +13,7 @@ export default async function updateCommentController(req, res) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    if (!content) {
+    if (!content || content.trim().length === 0) {
       return res.status(400).json({ message: 'Content is required' });
     }
 
@@ -22,6 +22,11 @@ export default async function updateCommentController(req, res) {
 
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Verify the comment belongs to the specified product
+    if (comment.product_id !== parseInt(productId, 10)) {
+      return res.status(400).json({ message: 'Comment does not belong to this product' });
     }
 
     // Check if user is the owner of the comment
@@ -38,7 +43,7 @@ export default async function updateCommentController(req, res) {
 
     // Update the comment
     await comment.update({
-      content,
+      content: content.trim(),
       rating: rating !== undefined ? rating : comment.rating
     });
 

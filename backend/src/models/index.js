@@ -15,6 +15,9 @@ import commentModel from './comment.js';
 import savedListingModel from './saved_listing.js';
 import productReportModel from './product_report.js';
 import userFollowModel from './user_follow.js';
+import communityPostModel from './community_post.js';
+import communityPostLikeModel from './community_post_like.js';
+import communityPostCommentModel from './community_post_comment.js';
 
 const models = {
   User: userModel(connectDB, DataTypes),
@@ -31,6 +34,9 @@ const models = {
   SavedListing: savedListingModel(connectDB, DataTypes),
   ProductReport: productReportModel(connectDB, DataTypes),
   UserFollow: userFollowModel(connectDB, DataTypes),
+  CommunityPost: communityPostModel(connectDB, DataTypes),
+  CommunityPostLike: communityPostLikeModel(connectDB, DataTypes),
+  CommunityPostComment: communityPostCommentModel(connectDB, DataTypes),
 };
 
 Object.values(models).forEach(model => {

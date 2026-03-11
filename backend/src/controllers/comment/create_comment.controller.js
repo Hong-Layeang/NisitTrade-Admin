@@ -12,7 +12,7 @@ export default async function createCommentController(req, res) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    if (!content) {
+    if (!content || content.trim().length === 0) {
       return res.status(400).json({ message: 'Content is required' });
     }
 
@@ -33,7 +33,7 @@ export default async function createCommentController(req, res) {
     const comment = await Comment.create({
       user_id: userId,
       product_id: productId,
-      content,
+      content: content.trim(),
       rating: rating || null
     });
 

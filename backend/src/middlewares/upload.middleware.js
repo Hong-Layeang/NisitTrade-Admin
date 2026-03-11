@@ -4,6 +4,7 @@ import multerS3 from 'multer-s3';
 import s3Client, { AWS_BUCKET_NAME } from '../config/aws.js';
 
 const MAX_PRODUCT_IMAGES = 8;
+const MAX_COMMUNITY_IMAGES = 8;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -40,6 +41,20 @@ const productImageStorage = multerS3({
     const randomString = Math.random().toString(36).substring(2, 8);
     const filename = `${timestamp}-${randomString}-${file.originalname}`;
     cb(null, `nisittrade/products/${filename}`);
+  },
+});
+
+const communityImageStorage = multerS3({
+  s3: s3Client,
+  bucket: AWS_BUCKET_NAME,
+  metadata: (req, file, cb) => {
+    cb(null, { fieldName: file.fieldname });
+  },
+  key: (req, file, cb) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const filename = `${timestamp}-${randomString}-${file.originalname}`;
+    cb(null, `nisittrade/community/${filename}`);
   },
 });
 
@@ -84,4 +99,13 @@ const uploadCover = multer({
   },
 }).single('cover');
 
-export { uploadProductImages, uploadAvatar, uploadCover };
+const uploadCommunityImages = multer({
+  storage: communityImageStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: MAX_COMMUNITY_IMAGES,
+  },
+}).array('images', MAX_COMMUNITY_IMAGES);
+
+export { uploadProductImages, uploadAvatar, uploadCover, uploadCommunityImages };

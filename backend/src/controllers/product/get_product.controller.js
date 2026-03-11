@@ -1,7 +1,7 @@
 import models from '../../models/index.js';
 import { enrichProductWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
-const { Product, User, Category, ProductImage, Like, Comment } = models;
+const { Product, User, Category, ProductImage, Like, Comment, University } = models;
 
 export default async function getProductController(req, res) {
   try {
@@ -39,10 +39,15 @@ export default async function getProductController(req, res) {
           include: [
             {
               model: User,
-              attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id']
+              attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id'],
+              include: [
+                {
+                  model: University,
+                  attributes: ['id', 'name', 'domain']
+                }
+              ]
             }
-          ],
-          order: [['created_at', 'DESC']]
+          ]
         }
       ]
     });
@@ -60,6 +65,17 @@ export default async function getProductController(req, res) {
         const createdDiff = aCreated - bCreated;
         if (createdDiff !== 0) return createdDiff;
         return (a.id ?? 0) - (b.id ?? 0);
+      });
+    }
+
+    // Sort comments by created_at in descending order (newest first)
+    if (product?.Comments) {
+      product.Comments.sort((a, b) => {
+        const aCreated = new Date(a.createdAt ?? a.created_at ?? 0);
+        const bCreated = new Date(b.createdAt ?? b.created_at ?? 0);
+        const createdDiff = bCreated - aCreated;
+        if (createdDiff !== 0) return createdDiff;
+        return (b.id ?? 0) - (a.id ?? 0); // Newer IDs first if same time
       });
     }
 
