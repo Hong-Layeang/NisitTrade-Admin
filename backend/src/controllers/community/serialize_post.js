@@ -23,6 +23,10 @@ export default async function serializeCommunityPost(post, {
     ? json.CommunityPostLikes[0]
     : null;
 
+  const mySave = Array.isArray(json.SavedCommunityPosts)
+    ? json.SavedCommunityPosts[0]
+    : null;
+
   let comments = undefined;
   if (includeComments) {
     const rawComments = Array.isArray(json.CommunityPostComments)
@@ -60,6 +64,8 @@ export default async function serializeCommunityPost(post, {
     image_urls: presignedImageUrls,
     is_liked_by_me: Boolean(myLike),
     my_like_id: myLike?.id ?? null,
+    is_saved_by_me: Boolean(mySave),
+    my_saved_id: mySave?.id ?? null,
     comments: comments,
   };
 }

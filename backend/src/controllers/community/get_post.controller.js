@@ -4,6 +4,7 @@ import serializeCommunityPost from './serialize_post.js';
 const {
   CommunityPost,
   CommunityPostLike,
+  SavedCommunityPost,
   CommunityPostComment,
   User,
   University,
@@ -28,6 +29,12 @@ export default async function getCommunityPostController(req, res) {
         },
         {
           model: CommunityPostLike,
+          where: userId ? { user_id: userId } : undefined,
+          required: false,
+          attributes: ['id', 'user_id', 'community_post_id', 'created_at'],
+        },
+        {
+          model: SavedCommunityPost,
           where: userId ? { user_id: userId } : undefined,
           required: false,
           attributes: ['id', 'user_id', 'community_post_id', 'created_at'],

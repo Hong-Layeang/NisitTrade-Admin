@@ -1,8 +1,5 @@
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-
 import models from '../../models/index.js';
-import { buildUserResponse, generateToken, getJwtSecret, hashPassword, validatePasswordStrength, } from '../../utils/helper/auth.helpers.js';
+import { buildUserResponse, generateToken, hashPassword, validatePasswordStrength, } from '../../utils/helper/auth.helpers.js';
 
 export default async function registerController(req, res) {
   try {
@@ -54,11 +51,7 @@ export default async function registerController(req, res) {
       university_id,
     });
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      getJwtSecret(),
-      { expiresIn: generateToken({ id: user.id, role: user.role }) }
-    );
+    const token = generateToken({ id: user.id, role: user.role });
 
     return res.status(201).json({
       success: true,

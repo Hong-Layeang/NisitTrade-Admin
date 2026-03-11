@@ -43,6 +43,16 @@ export default (sequelize, DataTypes) => {
       foreignKey: 'community_post_id',
       onDelete: 'CASCADE',
     });
+
+    CommunityPost.hasMany(models.CommunityPostReport, {
+      foreignKey: 'community_post_id',
+      onDelete: 'CASCADE',
+    });
+
+    CommunityPost.hasMany(models.SavedCommunityPost, {
+      foreignKey: 'community_post_id',
+      onDelete: 'CASCADE',
+    });
   };
 
   return CommunityPost;

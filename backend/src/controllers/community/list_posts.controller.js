@@ -2,12 +2,24 @@ import models from '../../models/index.js';
 import { Op } from 'sequelize';
 import serializeCommunityPost from './serialize_post.js';
 
-const { CommunityPost, CommunityPostLike, User, University, UserFollow } = models;
+const {
+  CommunityPost,
+  CommunityPostLike,
+  SavedCommunityPost,
+  User,
+  University,
+  UserFollow,
+} = models;
 
 export default async function listCommunityPostsController(req, res) {
   try {
-    const { limit = 20, offset = 0, feed = 'community' } = req.query;
+    const { limit = 20, offset = 0, feed = 'community', user_id: userIdParam } = req.query;
     const requesterId = req.user?.id;
+    const targetUserId = Number.parseInt(userIdParam, 10);
+
+    if (userIdParam !== undefined && Number.isNaN(targetUserId)) {
+      return res.status(400).json({ message: 'Invalid user_id query parameter' });
+    }
 
     // Filter by university: show posts from users in the same university
     const requester = await User.findByPk(requesterId, {
@@ -16,7 +28,9 @@ export default async function listCommunityPostsController(req, res) {
 
     const userWhere = {};
 
-    if (feed === 'following' && requesterId) {
+    if (!Number.isNaN(targetUserId)) {
+      userWhere.id = targetUserId;
+    } else if (feed === 'following' && requesterId) {
       const follows = await UserFollow.findAll({
         where: { follower_id: requesterId },
         attributes: ['following_id'],
@@ -26,6 +40,10 @@ export default async function listCommunityPostsController(req, res) {
       userWhere.id = {
         [Op.in]: [...new Set([requesterId, ...followingIds])],
       };
+
+      if (requester?.university_id) {
+        userWhere.university_id = requester.university_id;
+      }
     } else if (requester?.university_id) {
       userWhere.university_id = requester.university_id;
     }
@@ -45,6 +63,12 @@ export default async function listCommunityPostsController(req, res) {
         },
         {
           model: CommunityPostLike,
+          where: requesterId ? { user_id: requesterId } : undefined,
+          required: false,
+          attributes: ['id', 'user_id', 'community_post_id'],
+        },
+        {
+          model: SavedCommunityPost,
           where: requesterId ? { user_id: requesterId } : undefined,
           required: false,
           attributes: ['id', 'user_id', 'community_post_id'],

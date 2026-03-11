@@ -1,7 +1,7 @@
 import models from '../../models/index.js';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
-const { User, University } = models;
+const { User, University, UserFollow } = models;
 
 export default async function updateUserController(req, res) {
   try {
@@ -73,7 +73,9 @@ export default async function updateUserController(req, res) {
     });
 
     const updatedUserJson = updatedUser.toJSON();
-    const [presignedProfileImage, presignedCoverImage] = await Promise.all([
+    const [followerCount, followingCount, presignedProfileImage, presignedCoverImage] = await Promise.all([
+      UserFollow.count({ where: { following_id: id } }),
+      UserFollow.count({ where: { follower_id: id } }),
       presignIfS3Url(updatedUserJson.profile_image),
       presignIfS3Url(updatedUserJson.cover_image),
     ]);
@@ -82,6 +84,9 @@ export default async function updateUserController(req, res) {
       ...updatedUserJson,
       profile_image: presignedProfileImage,
       cover_image: presignedCoverImage,
+      follower_count: followerCount,
+      following_count: followingCount,
+      is_following: false,
     });
   } catch (error) {
     console.error('Error updating user:', error);

@@ -8,6 +8,7 @@ import updateCoverController from '../controllers/user/update_cover.controller.j
 import getUserProductsController from '../controllers/user/get_user_products.controller.js';
 import getUserConversationsController from '../controllers/user/get_user_conversations.controller.js';
 import getUserSavedListingsController from '../controllers/saved/get_user_saved_listings.controller.js';
+import getUserSavedCommunityPostsController from '../controllers/saved/get_user_saved_community_posts.controller.js';
 import followUserController from '../controllers/user/follow_user.controller.js';
 import unfollowUserController from '../controllers/user/unfollow_user.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
@@ -24,6 +25,7 @@ router.put('/:id/cover', authMiddleware, uploadCover, updateCoverController); //
 router.get('/:id/products', authMiddleware, getUserProductsController); // get
 router.get('/:id/conversations', authMiddleware, getUserConversationsController); // get
 router.get('/:id/saved', authMiddleware, getUserSavedListingsController); // get
+router.get('/:id/saved/posts', authMiddleware, getUserSavedCommunityPostsController); // get saved posts
 
 router.post('/:id/follow', authMiddleware, followUserController); // follow
 router.delete('/:id/follow', authMiddleware, unfollowUserController); // unfollow

@@ -78,6 +78,11 @@ export default (sequelize, DataTypes) => {
       foreignKey: 'user_id',
       onDelete: 'SET NULL',
     });
+
+    User.hasMany(models.CommunityPostReport, {
+      foreignKey: 'user_id',
+      onDelete: 'SET NULL',
+    });
   };
 
   return User;

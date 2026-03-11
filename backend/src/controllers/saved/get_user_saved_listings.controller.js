@@ -1,5 +1,6 @@
 import models from '../../models/index.js';
 import { Op } from 'sequelize';
+import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { SavedListing, Product, User, Category, ProductImage } = models;
 
@@ -49,11 +50,21 @@ export default async function getUserSavedListingsController(req, res) {
       offset: parseInt(offset)
     });
 
+    // Enrich each saved-listing's product with presigned S3 image URLs
+    const enrichedRows = await Promise.all(
+      rows.map(async (row) => {
+        const rowJson = row.toJSON();
+        if (!rowJson.Product) return rowJson;
+        const [enrichedProduct] = await enrichProductsWithPresignedUrls([rowJson.Product]);
+        return { ...rowJson, Product: enrichedProduct };
+      })
+    );
+
     return res.json({
       total: count,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      items: rows
+      items: enrichedRows
     });
   } catch (error) {
     console.error('Error fetching saved listings:', error);
