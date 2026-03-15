@@ -8,10 +8,12 @@ import Dashboard from "./pages/dashboard.tsx";
 import Users from "./pages/user.tsx";
 import AdminShop from "./pages/adminshop.tsx";
 import UsersProduct from "./pages/usersProduct.tsx";
+import Login from "./pages/loginpage.tsx";
 
 function App() {
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
       <Route path="/" element={<DashboardLayout />}>
         <Route index element={<Dashboard />} />                 {/* default / */}
         <Route path="users" element={<Users />} />
