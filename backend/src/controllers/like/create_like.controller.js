@@ -1,43 +1,57 @@
 import models from '../../models/index.js';
 
-const { Like, Product, User } = models;
+const { Product, Like } = models;
 
 export default async function createLikeController(req, res) {
   try {
-    const { productId } = req.params;
+    const productId = parseInt(req.params.productId, 10);
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // Check if product exists
     const product = await Product.findByPk(productId);
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Check if user already liked this product
-    const existingLike = await Like.findOne({
-      where: { user_id: userId, product_id: productId }
+    // Try to create like
+    const [like, created] = await Like.findOrCreate({
+      where: {
+        likeable_type: 'Product',
+        likeable_id: productId,
+        user_id: userId,
+      },
+      defaults: {
+        likeable_type: 'Product',
+        likeable_id: productId,
+        user_id: userId,
+      },
     });
 
-    if (existingLike) {
-      return res.status(400).json({ message: 'Already liked this product' });
+    if (!created) {
+      return res.status(409).json({ error: 'Already liked' });
     }
-
-    // Create the like
-    const like = await Like.create({
-      user_id: userId,
-      product_id: productId
-    });
 
     res.status(201).json(like);
   } catch (error) {
     console.error('Error creating like:', error);
-    res.status(500).json({
-      message: 'Failed to create like',
-      error: error.message
-    });
+    
+    // Handle specific database constraint errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ error: 'Already liked' });
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(404).json({ error: 'User or product not found' });
+    }
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: 'Invalid data provided' });
+    }
+
+    // Generic server error
+    const status = error.message?.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: 'Failed to process like. Please try again.' });
   }
 }

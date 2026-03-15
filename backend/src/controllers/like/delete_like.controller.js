@@ -20,6 +20,11 @@ export default async function deleteLikeController(req, res) {
       return res.json({ message: 'Unliked' });
     }
 
+    // Verify the like belongs to the specified product
+    if (like.likeable_type !== 'Product' || Number(like.likeable_id) !== Number(productId)) {
+      return res.status(400).json({ message: 'Like does not belong to this product' });
+    }
+
     // Check if user is the owner of the like
     if (Number(like.user_id) !== Number(userId) && userRole !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' });

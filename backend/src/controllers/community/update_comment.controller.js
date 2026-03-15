@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostComment } = models;
+const { CommunityPost, Comment } = models;
 
 export default async function updateCommunityCommentController(req, res) {
   try {
@@ -8,6 +8,7 @@ export default async function updateCommunityCommentController(req, res) {
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const content = req.body?.content?.trim() ?? '';
+    const { rating } = req.body;
 
     if (!userId) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -26,8 +27,8 @@ export default async function updateCommunityCommentController(req, res) {
       return res.status(404).json({ message: 'Community post not found' });
     }
 
-    const comment = await CommunityPostComment.findByPk(commentId);
-    if (!comment || Number(comment.community_post_id) !== Number(post.id)) {
+    const comment = await Comment.findByPk(commentId);
+    if (!comment || comment.commentable_type !== 'CommunityPost' || Number(comment.commentable_id) !== Number(post.id)) {
       return res.status(404).json({ message: 'Comment not found' });
     }
 
@@ -35,7 +36,15 @@ export default async function updateCommunityCommentController(req, res) {
       return res.status(403).json({ message: 'Not authorized to update this comment' });
     }
 
-    await comment.update({ content });
+    const updateData = { content };
+    if (rating !== undefined) {
+      if (rating !== null && (rating < 1 || rating > 5)) {
+        return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+      }
+      updateData.rating = rating;
+    }
+
+    await comment.update(updateData);
     return res.status(200).json(comment);
   } catch (err) {
     console.error('updateCommunityCommentController error:', err);

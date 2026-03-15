@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostReport } = models;
+const { CommunityPost, Report } = models;
 
 export default async function createCommunityPostReportController(req, res) {
   try {
@@ -25,9 +25,10 @@ export default async function createCommunityPostReportController(req, res) {
       return res.status(400).json({ message: 'You cannot report your own post' });
     }
 
-    const report = await CommunityPostReport.create({
+    const report = await Report.create({
       user_id: userId,
-      community_post_id: postId,
+      reportable_type: 'CommunityPost',
+      reportable_id: postId,
       reason: reason.trim(),
       details: details?.trim() || null,
     });

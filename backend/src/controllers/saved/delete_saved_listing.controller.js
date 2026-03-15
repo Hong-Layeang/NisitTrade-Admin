@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { SavedListing } = models;
+const { SavedItem } = models;
 
 export default async function deleteSavedListingController(req, res) {
   try {
@@ -11,8 +11,8 @@ export default async function deleteSavedListingController(req, res) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    await SavedListing.destroy({
-      where: { user_id: userId, product_id: productId }
+    await SavedItem.destroy({
+      where: { user_id: userId, saveable_type: 'Product', saveable_id: productId }
     });
 
     return res.status(204).send();

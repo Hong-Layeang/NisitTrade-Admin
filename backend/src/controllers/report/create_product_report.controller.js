@@ -1,39 +1,42 @@
 import models from '../../models/index.js';
 
-const { ProductReport, Product } = models;
+const { Product, Report } = models;
 
 export default async function createProductReportController(req, res) {
   try {
-    const { productId } = req.params;
-    const { reason, details } = req.body;
+    const productId = parseInt(req.params.productId, 10);
     const userId = req.user?.id;
-
+    
     if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (!reason || reason.trim() === '') {
-      return res.status(400).json({ message: 'Reason is required' });
+    // Validate request body
+    if (!req.body?.reason || !req.body.reason.trim()) {
+      return res.status(400).json({ error: 'Reason is required' });
     }
 
+    const reason = req.body.reason.trim();
+    const details = req.body.details?.trim() || null;
+
+    // Check if product exists
     const product = await Product.findByPk(productId);
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    const report = await ProductReport.create({
+    const report = await Report.create({
+      reportable_type: 'Product',
+      reportable_id: productId,
       user_id: userId,
-      product_id: productId,
-      reason: reason.trim(),
-      details: details?.trim() || null
+      reason,
+      details,
     });
 
-    return res.status(201).json(report);
+    res.status(201).json(report);
   } catch (error) {
-    console.error('Error reporting product:', error);
-    return res.status(500).json({
-      message: 'Failed to report product',
-      error: error.message
-    });
+    console.error('Error creating report:', error);
+    const status = error.message.includes('not found') ? 404 : 400;
+    res.status(status).json({ error: error.message });
   }
 }

@@ -2,7 +2,7 @@ import models from '../../models/index.js';
 import { Op } from 'sequelize';
 import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
-const { SavedListing, Product, User, Category, ProductImage } = models;
+const { SavedItem, Product, User, Category, ProductImage } = models;
 
 export default async function getUserSavedListingsController(req, res) {
   try {
@@ -19,45 +19,52 @@ export default async function getUserSavedListingsController(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const productWhere = requesterRole === 'admin'
-      ? {}
-      : { status: { [Op.ne]: 'hidden' } };
-
-    const { count, rows } = await SavedListing.findAndCountAll({
-      where: { user_id: id },
-      include: [
-        {
-          model: Product,
-          where: productWhere,
-          include: [
-            {
-              model: User,
-              attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
-            },
-            {
-              model: Category,
-              attributes: ['id', 'name', 'created_at', 'updated_at']
-            },
-            {
-              model: ProductImage,
-              attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
-            }
-          ]
-        }
-      ],
+    // Get all saved items for this user that are products
+    const { count, rows } = await SavedItem.findAndCountAll({
+      where: { user_id: id, saveable_type: 'Product' },
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
-      offset: parseInt(offset)
+      offset: parseInt(offset),
+      raw: true,
     });
 
-    // Enrich each saved-listing's product with presigned S3 image URLs
+    // Batch fetch all products
+    const productIds = rows.map(row => row.saveable_id);
+    const productWhere = requesterRole === 'admin'
+      ? { id: { [Op.in]: productIds } }
+      : { id: { [Op.in]: productIds }, status: { [Op.ne]: 'hidden' } };
+
+    const products = await Product.findAll({
+      where: productWhere,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
+        },
+        {
+          model: Category,
+          attributes: ['id', 'name', 'created_at', 'updated_at']
+        },
+        {
+          model: ProductImage,
+          attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+        }
+      ],
+    });
+
+    // Create a map of productId -> product for easy lookup
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Combine saved items with products, maintaining order
     const enrichedRows = await Promise.all(
-      rows.map(async (row) => {
-        const rowJson = row.toJSON();
-        if (!rowJson.Product) return rowJson;
-        const [enrichedProduct] = await enrichProductsWithPresignedUrls([rowJson.Product]);
-        return { ...rowJson, Product: enrichedProduct };
-      })
+      rows
+        .map(row => productMap.get(row.saveable_id))
+        .filter(product => product !== undefined)
+        .map(async (product) => {
+          const productJson = product.toJSON();
+          const [enrichedProduct] = await enrichProductsWithPresignedUrls([productJson]);
+          return enrichedProduct;
+        })
     );
 
     return res.json({

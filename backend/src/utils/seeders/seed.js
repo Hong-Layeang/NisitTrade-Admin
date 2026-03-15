@@ -839,6 +839,7 @@
 
 
 import models from '../../models/index.js';
+import { pathToFileURL } from 'url';
 
 const { Category, University } = models;
 
@@ -902,5 +903,9 @@ const seedData = async () => {
 
 export default seedData;
 
-// Execute the seed
-seedData();
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  seedData();
+}

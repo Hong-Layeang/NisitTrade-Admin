@@ -1,44 +1,45 @@
 import models from '../../models/index.js';
 
-const { Comment, Product, User } = models;
+const { Product, Comment, User } = models;
 
 export default async function createCommentController(req, res) {
   try {
-    const { productId } = req.params;
-    const { content, rating } = req.body;
+    const productId = parseInt(req.params.productId, 10);
     const userId = req.user?.id;
-
+    
     if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({ message: 'Content is required' });
+    if (!req.body?.content || !req.body.content.trim()) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    const content = req.body.content.trim();
+    if (content.length > 500) {
+      return res.status(400).json({ error: 'Comment must be 500 characters or less' });
     }
 
     // Check if product exists
     const product = await Product.findByPk(productId);
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Validate rating if provided
-    if (rating !== undefined && rating !== null) {
-      if (typeof rating !== 'number' || rating < 1 || rating > 5) {
-        return res.status(400).json({ message: 'Rating must be between 1 and 5' });
-      }
+    const rating = req.body.rating ? parseInt(req.body.rating, 10) : null;
+    if (rating !== null && (rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
     }
 
-    // Create the comment
     const comment = await Comment.create({
+      commentable_type: 'Product',
+      commentable_id: productId,
       user_id: userId,
-      product_id: productId,
-      content: content.trim(),
-      rating: rating || null
+      content,
+      rating,
     });
 
-    // Include user info
-    await comment.reload({
+    const commentWithUser = await Comment.findByPk(comment.id, {
       include: [
         {
           model: User,
@@ -47,12 +48,23 @@ export default async function createCommentController(req, res) {
       ]
     });
 
-    res.status(201).json(comment);
+    res.status(201).json(commentWithUser);
   } catch (error) {
     console.error('Error creating comment:', error);
-    res.status(500).json({
-      message: 'Failed to create comment',
-      error: error.message
-    });
+    
+    // Handle specific database constraint errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ error: 'Duplicate entry' });
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(404).json({ error: 'User or product not found' });
+    }
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: 'Invalid data provided' });
+    }
+
+    // Generic server error
+    const status = error.message?.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: 'Failed to process comment. Please try again.' });
   }
 }

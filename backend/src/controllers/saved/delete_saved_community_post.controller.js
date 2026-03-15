@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { SavedCommunityPost } = models;
+const { SavedItem } = models;
 
 export default async function deleteSavedCommunityPostController(req, res) {
   try {
@@ -11,8 +11,8 @@ export default async function deleteSavedCommunityPostController(req, res) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const deleted = await SavedCommunityPost.destroy({
-      where: { user_id: userId, community_post_id: postId },
+    const deleted = await SavedItem.destroy({
+      where: { user_id: userId, saveable_type: 'CommunityPost', saveable_id: postId },
     });
 
     if (!deleted) {

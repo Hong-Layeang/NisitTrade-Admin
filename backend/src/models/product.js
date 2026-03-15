@@ -35,24 +35,32 @@ export default (sequelize, DataTypes) => {
       onDelete: 'CASCADE',
     });
 
+    // associations
     Product.hasMany(models.Like, {
-      foreignKey: 'product_id',
-      onDelete: 'CASCADE',
+      foreignKey: 'likeable_id',
+      constraints: false,
+      scope: {
+        likeable_type: 'Product',
+      },
+      as: 'Likes',
     });
 
     Product.hasMany(models.Comment, {
-      foreignKey: 'product_id',
-      onDelete: 'CASCADE',
+      foreignKey: 'commentable_id',
+      constraints: false,
+      scope: {
+        commentable_type: 'Product',
+      },
+      as: 'Comments',
     });
 
-    Product.hasMany(models.SavedListing, {
-      foreignKey: 'product_id',
-      onDelete: 'CASCADE',
-    });
-
-    Product.hasMany(models.ProductReport, {
-      foreignKey: 'product_id',
-      onDelete: 'CASCADE',
+    Product.hasMany(models.SavedItem, {
+      foreignKey: 'saveable_id',
+      constraints: false,
+      scope: {
+        saveable_type: 'Product',
+      },
+      as: 'SavedItems',
     });
   };
 

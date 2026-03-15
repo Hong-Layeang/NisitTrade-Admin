@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
-import { connectDB } from '../models/index.js';
+import { pathToFileURL } from 'url';
+import { connectDB } from '../../models/index.js';
 
 dotenv.config();
 
@@ -48,4 +49,9 @@ const runDedup = async () => {
   }
 };
 
-runDedup();
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  runDedup();
+}

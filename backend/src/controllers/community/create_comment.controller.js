@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostComment, User, University } = models;
+const { CommunityPost, Comment, User, University } = models;
 
 export default async function createCommunityCommentController(req, res) {
   try {
@@ -25,8 +25,9 @@ export default async function createCommunityCommentController(req, res) {
       return res.status(404).json({ message: 'Community post not found' });
     }
 
-    const comment = await CommunityPostComment.create({
-      community_post_id: post.id,
+    const comment = await Comment.create({
+      commentable_type: 'CommunityPost',
+      commentable_id: post.id,
       user_id: userId,
       content,
     });

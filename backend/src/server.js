@@ -15,7 +15,6 @@ import userRoutes from '../src/routes/user.routes.js';
 import connectDB, { testConnection } from '../src/config/database.js';
 import '../src/models/index.js';
 import { multerErrorMiddleware } from '../src/middlewares/multer_error.middleware.js';
-import ensureCommunityPostSchema from '../src/utils/ensure-community-post-schema.js';
 
 dotenv.config();
 
@@ -58,7 +57,6 @@ const startServer = async () => {
         if (process.env.NODE_ENV !== 'production') {
             await connectDB.sync();
         }
-        await ensureCommunityPostSchema();
         console.log('Database connected');
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`Server running on port ${PORT}`);
