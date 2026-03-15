@@ -864,16 +864,6 @@ const seedData = async () => {
   try {
     console.log('🌱 Starting category-only seeding...');
 
-    // Seed universities (find-or-create so re-runs are safe)
-    const [cadt] = await University.findOrCreate({
-      where: { domain: 'student.cadt.edu.kh' },
-      defaults: {
-        name: 'Cambodian Academy of Digital Technology',
-        domain: 'student.cadt.edu.kh',
-      },
-    });
-    console.log(`✅ University seeded: ${cadt.name} (${cadt.domain})`);
-
     // Drop and recreate the categories table (resets all rows and IDs)
     await Category.sync({ force: true });
     console.log('🗑️  Categories table dropped and recreated.');

@@ -1,11 +1,11 @@
 import models from '../../models/index.js';
 
-const { Message, Conversation, ConversationParticipant, User } = models;
+const { Message, Conversation, ConversationParticipant, User, Product, ProductImage } = models;
 
 export default async function sendMessageController(req, res) {
 	try {
 		const { conversationId } = req.params;
-		const { message_text } = req.body;
+		const { message_text, attached_product_id } = req.body;
 		const userId = req.user?.id;
 
 		if (!userId) {
@@ -21,6 +21,18 @@ export default async function sendMessageController(req, res) {
 			return res.status(404).json({ message: 'Conversation not found' });
 		}
 
+		if (attached_product_id != null) {
+			if (!conversation.product_id) {
+				return res.status(400).json({ message: 'Conversation has no product context' });
+			}
+
+			if (String(attached_product_id) !== String(conversation.product_id)) {
+				return res.status(400).json({
+					message: 'Attached product must match the conversation product',
+				});
+			}
+		}
+
 		const participant = await ConversationParticipant.findOne({
 			where: { conversation_id: conversationId, user_id: userId }
 		});
@@ -32,7 +44,8 @@ export default async function sendMessageController(req, res) {
 		const message = await Message.create({
 			conversation_id: conversationId,
 			sender_id: userId,
-			message_text: String(message_text).trim()
+			message_text: String(message_text).trim(),
+			attached_product_id: attached_product_id ?? null,
 		});
 
 		const createdMessage = await Message.findByPk(message.id, {
@@ -40,6 +53,17 @@ export default async function sendMessageController(req, res) {
 				{
 					model: User,
 					attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id']
+				},
+				{
+					model: Product,
+					as: 'AttachedProduct',
+					attributes: ['id', 'title', 'price', 'status', 'user_id', 'category_id', 'created_at', 'updated_at'],
+					include: [
+						{
+							model: ProductImage,
+							attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+						}
+					]
 				}
 			]
 		});

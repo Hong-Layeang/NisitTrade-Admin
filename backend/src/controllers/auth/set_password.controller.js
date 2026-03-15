@@ -34,8 +34,8 @@ export async function setPasswordController(req, res) {
     const passwordHash = await hashPassword(password);
     user.password_hash = passwordHash;
     user.password_set = true;
-    if (!user.provider) {
-      user.provider = 'local';
+    if (!user.provider || user.provider !== 'microsoft') {
+      user.provider = 'microsoft';
     }
     await user.save();
 

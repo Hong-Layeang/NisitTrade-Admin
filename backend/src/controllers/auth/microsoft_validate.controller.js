@@ -67,8 +67,20 @@ export default async function microsoftValidateController(req, res) {
         password_set: false,
         university_id: university?.id ?? null,
       });
-    } else if (!user.university_id && university) {
-      await user.update({ university_id: university.id });
+    } else {
+      const updates = {};
+
+      if (user.provider !== 'microsoft') {
+        updates.provider = 'microsoft';
+      }
+
+      if (!user.university_id && university) {
+        updates.university_id = university.id;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await user.update(updates);
+      }
     }
 
     // check if password setup is needed
