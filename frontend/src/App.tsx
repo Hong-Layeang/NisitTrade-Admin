@@ -11,14 +11,14 @@ import UsersProduct from "./pages/usersProduct.tsx";
 
 function App() {
   return (
-    <DashboardLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/users" element={<Users />} />
-        <Route path="/admin-shop" element={<AdminShop />} />
-        <Route path="/users-product" element={<UsersProduct />} />
-      </Routes>
-    </DashboardLayout>
+    <Routes>
+      <Route path="/" element={<DashboardLayout />}>
+        <Route index element={<Dashboard />} />                 {/* default / */}
+        <Route path="users" element={<Users />} />
+        <Route path="admin-shop" element={<AdminShop />} />
+        <Route path="users-product" element={<UsersProduct />} />
+      </Route>
+    </Routes>
   );
 }
 
