@@ -1,4 +1,4 @@
-import models from '../../models/index.js';
+﻿import models from '../../models/index.js';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
 const { User, University, UserFollow } = models;
@@ -59,6 +59,7 @@ export default async function getUserController(req, res) {
       follower_count: followerCount,
       following_count: followingCount,
       is_following: Boolean(isFollowingTarget),
+      email_domain: user.email ? (user.email.split('@')[1] ?? null) : null,
     };
 
     // Return full profile to owner/admin; return only public fields to others
