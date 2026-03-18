@@ -69,17 +69,12 @@ export default (sequelize, DataTypes) => {
       foreignKey: 'user_id',
     });
 
-    User.hasMany(models.SavedListing, {
+    User.hasMany(models.SavedItem, {
       foreignKey: 'user_id',
       onDelete: 'CASCADE',
     });
 
-    User.hasMany(models.ProductReport, {
-      foreignKey: 'user_id',
-      onDelete: 'SET NULL',
-    });
-
-    User.hasMany(models.CommunityPostReport, {
+    User.hasMany(models.Report, {
       foreignKey: 'user_id',
       onDelete: 'SET NULL',
     });

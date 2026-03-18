@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostLike } = models;
+const { CommunityPost, Like } = models;
 
 export default async function createCommunityLikeController(req, res) {
   try {
@@ -16,13 +16,15 @@ export default async function createCommunityLikeController(req, res) {
       return res.status(404).json({ message: 'Community post not found' });
     }
 
-    const [like, created] = await CommunityPostLike.findOrCreate({
+    const [like, created] = await Like.findOrCreate({
       where: {
-        community_post_id: post.id,
+        likeable_type: 'CommunityPost',
+        likeable_id: post.id,
         user_id: userId,
       },
       defaults: {
-        community_post_id: post.id,
+        likeable_type: 'CommunityPost',
+        likeable_id: post.id,
         user_id: userId,
       },
     });

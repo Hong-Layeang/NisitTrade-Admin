@@ -2,9 +2,9 @@ import models from '../../models/index.js';
 import serializeCommunityPost from '../community/serialize_post.js';
 
 const {
-  SavedCommunityPost,
+  SavedItem,
   CommunityPost,
-  CommunityPostLike,
+  Like,
   User,
   University,
 } = models;
@@ -23,46 +23,50 @@ export default async function getUserSavedCommunityPostsController(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const savedRows = await SavedCommunityPost.findAll({
-      where: { user_id: id },
-      include: [
-        {
-          model: CommunityPost,
-          include: [
-            {
-              model: User,
-              attributes: ['id', 'full_name', 'email', 'profile_image', 'role', 'university_id', 'created_at', 'updated_at'],
-              include: [
-                {
-                  model: University,
-                  attributes: ['id', 'name', 'domain'],
-                },
-              ],
-            },
-            {
-              model: CommunityPostLike,
-              where: { user_id: requesterId },
-              required: false,
-              attributes: ['id', 'user_id', 'community_post_id'],
-            },
-            {
-              model: SavedCommunityPost,
-              where: { user_id: requesterId },
-              required: false,
-              attributes: ['id', 'user_id', 'community_post_id'],
-            },
-          ],
-        },
-      ],
+    // Get saved items for this user that are community posts
+    const savedItems = await SavedItem.findAll({
+      where: { user_id: id, saveable_type: 'CommunityPost' },
       order: [['created_at', 'DESC']],
       limit: Math.min(parseInt(limit, 10), 100),
       offset: parseInt(offset, 10),
+      raw: true,
+    });
+
+    // Fetch the actual community posts
+    const postIds = savedItems.map(item => item.saveable_id);
+    const communityPosts = await CommunityPost.findAll({
+      where: { id: postIds },
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'full_name', 'email', 'profile_image', 'role', 'university_id', 'created_at', 'updated_at'],
+          include: [
+            {
+              model: University,
+              attributes: ['id', 'name', 'domain'],
+            },
+          ],
+        },
+        {
+          model: Like,
+          as: 'Likes',
+          where: requesterId ? { user_id: requesterId } : undefined,
+          required: false,
+          attributes: ['id', 'user_id', 'likeable_id'],
+        },
+        {
+          model: SavedItem,
+          as: 'SavedItems',
+          where: requesterId ? { user_id: requesterId } : undefined,
+          required: false,
+          attributes: ['id', 'user_id', 'saveable_id'],
+        },
+      ],
     });
 
     const posts = await Promise.all(
-      savedRows
-        .filter(row => row.CommunityPost)
-        .map(row => serializeCommunityPost(row.CommunityPost)),
+      communityPosts
+        .map(post => serializeCommunityPost(post)),
     );
 
     return res.status(200).json({ count: posts.length, posts });

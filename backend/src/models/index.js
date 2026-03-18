@@ -12,14 +12,10 @@ import messageModel from './message.js';
 import messageReadModel from './message_read.js';
 import likeModel from './like.js';
 import commentModel from './comment.js';
-import savedListingModel from './saved_listing.js';
-import productReportModel from './product_report.js';
+import savedItemModel from './saved_item.js';
+import reportModel from './report.js';
 import userFollowModel from './user_follow.js';
 import communityPostModel from './community_post.js';
-import communityPostLikeModel from './community_post_like.js';
-import communityPostCommentModel from './community_post_comment.js';
-import communityPostReportModel from './community_post_report.js';
-import savedCommunityPostModel from './saved_community_post.js';
 
 const models = {
   User: userModel(connectDB, DataTypes),
@@ -33,14 +29,10 @@ const models = {
   MessageRead: messageReadModel(connectDB, DataTypes),
   Like: likeModel(connectDB, DataTypes),
   Comment: commentModel(connectDB, DataTypes),
-  SavedListing: savedListingModel(connectDB, DataTypes),
-  ProductReport: productReportModel(connectDB, DataTypes),
+  SavedItem: savedItemModel(connectDB, DataTypes),
+  Report: reportModel(connectDB, DataTypes),
   UserFollow: userFollowModel(connectDB, DataTypes),
   CommunityPost: communityPostModel(connectDB, DataTypes),
-  CommunityPostLike: communityPostLikeModel(connectDB, DataTypes),
-  CommunityPostComment: communityPostCommentModel(connectDB, DataTypes),
-  CommunityPostReport: communityPostReportModel(connectDB, DataTypes),
-  SavedCommunityPost: savedCommunityPostModel(connectDB, DataTypes),
 };
 
 Object.values(models).forEach(model => {

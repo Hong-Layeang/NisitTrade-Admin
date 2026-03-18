@@ -5,50 +5,52 @@ const { Comment, User } = models;
 export default async function updateCommentController(req, res) {
   try {
     const { productId, commentId } = req.params;
-    const { content, rating } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
-
+    
     if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({ message: 'Content is required' });
-    }
-
-    // Find the comment
     const comment = await Comment.findByPk(commentId);
-
     if (!comment) {
-      return res.status(404).json({ message: 'Comment not found' });
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
-    // Verify the comment belongs to the specified product
-    if (comment.product_id !== parseInt(productId, 10)) {
-      return res.status(400).json({ message: 'Comment does not belong to this product' });
+    //Verify comment belongs to the product
+    if (comment.commentable_type !== 'Product' || comment.commentable_id !== parseInt(productId, 10)) {
+      return res.status(400).json({ error: 'Comment does not belong to this product' });
     }
 
-    // Check if user is the owner of the comment
+    // Check authorization
     if (comment.user_id !== userId && userRole !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to update this comment' });
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Validate rating if provided
-    if (rating !== undefined && rating !== null) {
-      if (typeof rating !== 'number' || rating < 1 || rating > 5) {
-        return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    const updateData = {};
+
+    if (req.body?.content) {
+      const content = req.body.content.trim();
+      if (!content) {
+        return res.status(400).json({ error: 'Content cannot be empty' });
       }
+      if (content.length > 500) {
+        return res.status(400).json({ error: 'Comment must be 500 characters or less' });
+      }
+      updateData.content = content;
     }
 
-    // Update the comment
-    await comment.update({
-      content: content.trim(),
-      rating: rating !== undefined ? rating : comment.rating
-    });
+    if (req.body?.rating !== undefined) {
+      const rating = req.body.rating ? parseInt(req.body.rating, 10) : null;
+      if (rating !== null && (rating < 1 || rating > 5)) {
+        return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+      }
+      updateData.rating = rating;
+    }
 
-    // Include user info
-    await comment.reload({
+    await comment.update(updateData);
+
+    const updatedComment = await Comment.findByPk(commentId, {
       include: [
         {
           model: User,
@@ -57,12 +59,17 @@ export default async function updateCommentController(req, res) {
       ]
     });
 
-    res.json(comment);
+    res.json(updatedComment);
   } catch (error) {
     console.error('Error updating comment:', error);
-    res.status(500).json({
-      message: 'Failed to update comment',
-      error: error.message
-    });
+    
+    // Handle specific database constraint errors
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: 'Invalid data provided' });
+    }
+    
+    const status = error.message?.includes('Access denied') ? 403 :
+                   error.message?.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: 'Failed to update comment. Please try again.' });
   }
 }

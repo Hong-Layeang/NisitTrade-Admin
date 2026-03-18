@@ -7,7 +7,10 @@ export default async function getProductLikesController(req, res) {
     const { productId } = req.params;
 
     const likes = await Like.findAll({
-      where: { product_id: productId },
+      where: { 
+        likeable_type: 'Product',
+        likeable_id: productId 
+      },
       include: [
         {
           model: User,

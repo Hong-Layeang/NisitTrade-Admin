@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostLike } = models;
+const { CommunityPost, Like } = models;
 
 export default async function deleteCommunityLikeController(req, res) {
   try {
@@ -16,9 +16,10 @@ export default async function deleteCommunityLikeController(req, res) {
       return res.status(404).json({ message: 'Community post not found' });
     }
 
-    const like = await CommunityPostLike.findOne({
+    const like = await Like.findOne({
       where: {
-        community_post_id: post.id,
+        likeable_type: 'CommunityPost',
+        likeable_id: post.id,
         user_id: userId,
       },
     });

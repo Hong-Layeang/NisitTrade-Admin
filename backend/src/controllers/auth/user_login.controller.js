@@ -19,8 +19,25 @@ export async function userLoginController(req, res) {
       return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
     }
 
+    if (user.provider !== 'microsoft') {
+      return res.status(403).json({
+        valid: false,
+        msg: 'Password login is only available after Microsoft sign-in and password setup.',
+      });
+    }
+
     if (user.password_set !== true) {
-      return res.status(401).json({ valid: false, msg: 'Invalid credentials' });
+      return res.status(403).json({
+        valid: false,
+        msg: 'Password login is only available after Microsoft sign-in and password setup.',
+      });
+    }
+
+    if (!user.password_hash) {
+      return res.status(403).json({
+        valid: false,
+        msg: 'Password login is only available after Microsoft sign-in and password setup.',
+      });
     }
 
     const isValidPassword = await comparePassword(password, user.password_hash);

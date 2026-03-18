@@ -2,7 +2,15 @@ import { Op } from 'sequelize';
 
 import models from '../../models/index.js';
 
-const { ConversationParticipant, Conversation, Product, ProductImage, Message, User } = models;
+const {
+  ConversationParticipant,
+  Conversation,
+  Product,
+  ProductImage,
+  Message,
+  MessageRead,
+  User,
+} = models;
 
 export default async function listConversationsController(req, res) {
   try {
@@ -46,6 +54,8 @@ export default async function listConversationsController(req, res) {
       .filter(Boolean);
 
     let lastMessageByConversation = {};
+    const unreadCountByConversation = {};
+    let participantsByConversation = {};
     if (conversationIds.length > 0) {
       const messages = await Message.findAll({
         where: { conversation_id: { [Op.in]: conversationIds } },
@@ -53,6 +63,12 @@ export default async function listConversationsController(req, res) {
           {
             model: User,
             attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id']
+          },
+          {
+            model: MessageRead,
+            attributes: ['user_id'],
+            where: { user_id: userId },
+            required: false,
           }
         ],
         order: [['sent_at', 'DESC']]
@@ -63,6 +79,37 @@ export default async function listConversationsController(req, res) {
         if (!acc[key]) {
           acc[key] = message;
         }
+
+        if (String(message.sender_id) !== String(userId)) {
+          const currentReads = Array.isArray(message.MessageReads)
+            ? message.MessageReads
+            : [];
+          if (currentReads.length === 0) {
+            unreadCountByConversation[key] = (unreadCountByConversation[key] ?? 0) + 1;
+          }
+        }
+        return acc;
+      }, {});
+
+      const participants = await ConversationParticipant.findAll({
+        where: {
+          conversation_id: { [Op.in]: conversationIds },
+          user_id: { [Op.ne]: userId },
+        },
+        include: [
+          {
+            model: User,
+            attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
+          }
+        ],
+      });
+
+      participantsByConversation = participants.reduce((acc, participant) => {
+        const key = String(participant.conversation_id);
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(participant);
         return acc;
       }, {});
     }
@@ -72,6 +119,8 @@ export default async function listConversationsController(req, res) {
       const key = String(entryJson.conversation_id);
       return {
         ...entryJson,
+        unread_count: unreadCountByConversation[key] ?? 0,
+        participants: participantsByConversation[key] ?? [],
         last_message: lastMessageByConversation[key] || null,
       };
     });

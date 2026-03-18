@@ -19,18 +19,18 @@ export default async function serializeCommunityPost(post, {
     ? await presignIfS3Url(json.User.profile_image)
     : json.User?.profile_image;
 
-  const myLike = Array.isArray(json.CommunityPostLikes)
-    ? json.CommunityPostLikes[0]
+  const myLike = Array.isArray(json.Likes)
+    ? json.Likes[0]
     : null;
 
-  const mySave = Array.isArray(json.SavedCommunityPosts)
-    ? json.SavedCommunityPosts[0]
+  const mySave = Array.isArray(json.SavedItems)
+    ? json.SavedItems[0]
     : null;
 
   let comments = undefined;
   if (includeComments) {
-    const rawComments = Array.isArray(json.CommunityPostComments)
-      ? json.CommunityPostComments
+    const rawComments = Array.isArray(json.Comments)
+      ? json.Comments
       : [];
 
     comments = await Promise.all(
