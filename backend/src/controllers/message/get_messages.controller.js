@@ -43,7 +43,7 @@ export default async function getMessagesController(req, res) {
           ]
         }
       ],
-      order: [['sent_at', 'ASC']],
+      order: [['sent_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });

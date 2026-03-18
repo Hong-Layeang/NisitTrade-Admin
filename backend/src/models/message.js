@@ -3,10 +3,16 @@ export default (sequelize, DataTypes) => {
     message_text: {
       type: DataTypes.TEXT,
       allowNull: false,
+      defaultValue: '',
     },
     attached_product_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
+    },
+    image_urls: {
+      type: DataTypes.ARRAY(DataTypes.TEXT),
+      allowNull: false,
+      defaultValue: [],
     },
   }, {
     tableName: 'messages',

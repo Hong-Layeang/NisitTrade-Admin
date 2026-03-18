@@ -5,6 +5,7 @@ import s3Client, { AWS_BUCKET_NAME } from '../config/aws.js';
 
 const MAX_PRODUCT_IMAGES = 8;
 const MAX_COMMUNITY_IMAGES = 8;
+const MAX_CHAT_IMAGES = 4;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -58,6 +59,20 @@ const communityImageStorage = multerS3({
   },
 });
 
+const chatImageStorage = multerS3({
+  s3: s3Client,
+  bucket: AWS_BUCKET_NAME,
+  metadata: (req, file, cb) => {
+    cb(null, { fieldName: file.fieldname });
+  },
+  key: (req, file, cb) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const filename = `${timestamp}-${randomString}-${file.originalname}`;
+    cb(null, `nisittrade/chat/${filename}`);
+  },
+});
+
 const uploadProductImages = multer({
   storage: productImageStorage,
   fileFilter: imageFileFilter,
@@ -108,4 +123,19 @@ const uploadCommunityImages = multer({
   },
 }).array('images', MAX_COMMUNITY_IMAGES);
 
-export { uploadProductImages, uploadAvatar, uploadCover, uploadCommunityImages };
+const uploadChatImages = multer({
+  storage: chatImageStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: MAX_CHAT_IMAGES,
+  },
+}).array('images', MAX_CHAT_IMAGES);
+
+export {
+  uploadProductImages,
+  uploadAvatar,
+  uploadCover,
+  uploadCommunityImages,
+  uploadChatImages,
+};

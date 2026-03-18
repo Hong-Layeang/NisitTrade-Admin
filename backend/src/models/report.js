@@ -14,7 +14,7 @@ export default (sequelize, DataTypes) => {
       defaultValue: 'open',
     },
     reportable_type: {
-      type: DataTypes.ENUM('Product', 'CommunityPost'),
+      type: DataTypes.ENUM('Product', 'CommunityPost', 'User'),
       allowNull: false,
     },
     reportable_id: {
@@ -70,6 +70,13 @@ export default (sequelize, DataTypes) => {
       status: 'open',
     },
   });
+
+  Report.addScope('forUser', (reportedUserId) => ({
+    where: {
+      reportable_type: 'User',
+      reportable_id: reportedUserId,
+    },
+  }));
 
   return Report;
 };

@@ -7,13 +7,23 @@ export default async function sendMessageController(req, res) {
 		const { conversationId } = req.params;
 		const { message_text, attached_product_id } = req.body;
 		const userId = req.user?.id;
+    const uploadedImageUrls = Array.isArray(req.files)
+      ? req.files
+          .map((file) => file?.key ?? file?.location)
+          .filter((value) => typeof value === 'string' && value.trim() !== '')
+      : [];
+    const normalizedMessageText = String(message_text ?? '').trim();
 
 		if (!userId) {
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		if (!message_text || String(message_text).trim() === '') {
-			return res.status(400).json({ message: 'Message text is required' });
+		if (
+      normalizedMessageText === '' &&
+      uploadedImageUrls.length === 0 &&
+      attached_product_id == null
+    ) {
+			return res.status(400).json({ message: 'Message text, image, or product attachment is required' });
 		}
 
 		const conversation = await Conversation.findByPk(conversationId);
@@ -44,9 +54,14 @@ export default async function sendMessageController(req, res) {
 		const message = await Message.create({
 			conversation_id: conversationId,
 			sender_id: userId,
-			message_text: String(message_text).trim(),
+			message_text: normalizedMessageText,
 			attached_product_id: attached_product_id ?? null,
+      image_urls: uploadedImageUrls,
 		});
+
+    await conversation.update({
+      updatedAt: new Date(),
+    });
 
 		const createdMessage = await Message.findByPk(message.id, {
 			include: [

@@ -19,7 +19,8 @@ export default async function listConversationsController(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { limit = 50, offset = 0 } = req.query;
+    const parsedLimit = Math.max(parseInt(req.query.limit, 10) || 50, 1);
+    const parsedOffset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
     const total = await ConversationParticipant.count({
       where: { user_id: userId }
@@ -44,9 +45,9 @@ export default async function listConversationsController(req, res) {
           ]
         }
       ],
-      order: [['joined_at', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      order: [[Conversation, 'updated_at', 'DESC']],
+      limit: parsedLimit,
+      offset: parsedOffset
     });
 
     const conversationIds = conversations
@@ -127,8 +128,8 @@ export default async function listConversationsController(req, res) {
 
     res.json({
       total,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: parsedLimit,
+      offset: parsedOffset,
       items: response
     });
   } catch (error) {

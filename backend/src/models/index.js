@@ -15,6 +15,7 @@ import commentModel from './comment.js';
 import savedItemModel from './saved_item.js';
 import reportModel from './report.js';
 import userFollowModel from './user_follow.js';
+import userBlockModel from './user_block.js';
 import communityPostModel from './community_post.js';
 
 const models = {
@@ -32,6 +33,7 @@ const models = {
   SavedItem: savedItemModel(connectDB, DataTypes),
   Report: reportModel(connectDB, DataTypes),
   UserFollow: userFollowModel(connectDB, DataTypes),
+  UserBlock: userBlockModel(connectDB, DataTypes),
   CommunityPost: communityPostModel(connectDB, DataTypes),
 };
 
