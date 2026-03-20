@@ -15,15 +15,15 @@ export default async function blockUserController(req, res) {
       return res.status(400).json({ message: 'You cannot block yourself' });
     }
 
-    const [, created] = await UserBlock.findOrCreate({
+    if (!Number.isInteger(blockedId) || blockedId <= 0) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    await UserBlock.findOrCreate({
       where: { blocker_id: blockerId, blocked_id: blockedId },
     });
 
-    if (!created) {
-      return res.status(409).json({ message: 'User already blocked' });
-    }
-
-    res.status(201).json({ message: 'User blocked', blocked: true });
+    res.status(200).json({ message: 'User blocked', blocked: true });
   } catch (error) {
     console.error('Error blocking user:', error);
     res.status(500).json({ message: 'Failed to block user', error: error.message });

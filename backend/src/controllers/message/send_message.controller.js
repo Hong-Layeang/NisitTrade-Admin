@@ -1,4 +1,6 @@
 import models from '../../models/index.js';
+import { getUserBlockStatus } from '../../utils/user-blocks.js';
+import { broadcastNewMessage } from '../../websockets/chat.socket.js';
 
 const { Message, Conversation, ConversationParticipant, User, Product, ProductImage } = models;
 
@@ -51,6 +53,34 @@ export default async function sendMessageController(req, res) {
 			return res.status(403).json({ message: 'Forbidden' });
 		}
 
+		const otherParticipants = await ConversationParticipant.findAll({
+			where: { conversation_id: conversationId },
+			attributes: ['user_id'],
+		});
+
+		const otherParticipantId = otherParticipants
+			.map((entry) => Number(entry.user_id))
+			.find((participantUserId) => participantUserId > 0 && participantUserId !== Number(userId));
+
+		if (!otherParticipantId) {
+			return res.status(400).json({
+				message: 'This conversation is no longer available. Start a new chat to continue messaging.',
+			});
+		}
+
+		const blockStatus = await getUserBlockStatus(userId, otherParticipantId);
+		if (blockStatus.isBlockedByMe) {
+			return res.status(403).json({
+				message: 'You blocked this user. Unblock them to send messages.',
+			});
+		}
+
+		if (blockStatus.hasBlockedMe) {
+			return res.status(403).json({
+				message: 'This user has blocked you. Messaging is unavailable.',
+			});
+		}
+
 		const message = await Message.create({
 			conversation_id: conversationId,
 			sender_id: userId,
@@ -84,6 +114,10 @@ export default async function sendMessageController(req, res) {
 		});
 
 		res.status(201).json(createdMessage);
+
+		// Broadcast to WebSocket participants
+		const io = req.app.get('io');
+		broadcastNewMessage(io, parseInt(conversationId), createdMessage.toJSON());
 	} catch (error) {
 		console.error('Error sending message:', error);
 		res.status(500).json({

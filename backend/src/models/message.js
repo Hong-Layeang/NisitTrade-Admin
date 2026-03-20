@@ -14,6 +14,11 @@ export default (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: [],
     },
+    edited_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
   }, {
     tableName: 'messages',
     timestamps: true,

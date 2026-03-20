@@ -9,6 +9,16 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL is not set');
 }
 
+function toPositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const poolMax = toPositiveInt(process.env.DB_POOL_MAX, 20);
+const poolMin = toPositiveInt(process.env.DB_POOL_MIN, 0);
+const poolAcquireMs = toPositiveInt(process.env.DB_POOL_ACQUIRE_MS, 60000);
+const poolIdleMs = toPositiveInt(process.env.DB_POOL_IDLE_MS, 10000);
+
 const connectDB = new Sequelize(databaseUrl, {
   dialect: 'postgres',
   logging: false,
@@ -19,10 +29,10 @@ const connectDB = new Sequelize(databaseUrl, {
     },
   },
   pool: {
-    max: 10,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
+    max: poolMax,
+    min: poolMin,
+    acquire: poolAcquireMs,
+    idle: poolIdleMs,
   },
 });
 

@@ -1,10 +1,11 @@
 import { Op } from 'sequelize';
 
 import models from '../../models/index.js';
+import { getUserBlockStatus } from '../../utils/user-blocks.js';
 
 const { Conversation, ConversationParticipant, Product, ProductImage, User } = models;
 
-async function loadConversationPayload(conversationId) {
+async function loadConversationPayload(conversationId, currentUserId) {
   const conversation = await Conversation.findByPk(conversationId, {
     include: [
       {
@@ -35,9 +36,18 @@ async function loadConversationPayload(conversationId) {
     order: [['joined_at', 'ASC']]
   });
 
+  const otherParticipant = participants.find((entry) =>
+    Number(entry.user_id) > 0 && Number(entry.user_id) !== Number(currentUserId)
+  );
+  const blockStatus = otherParticipant
+    ? await getUserBlockStatus(currentUserId, otherParticipant.user_id)
+    : { isBlockedByMe: false, hasBlockedMe: false };
+
   return {
     ...conversation.toJSON(),
     participants,
+    is_blocked_by_me: blockStatus.isBlockedByMe,
+    has_blocked_me: blockStatus.hasBlockedMe,
   };
 }
 
@@ -72,6 +82,10 @@ export default async function createConversationController(req, res) {
       return res.status(400).json({ message: 'Cannot create conversation with yourself' });
     }
 
+    if (!Number.isInteger(Number(otherParticipantId)) || Number(otherParticipantId) <= 0) {
+      return res.status(400).json({ message: 'Invalid participant user id' });
+    }
+
     const conversationWhere = product_id
       ? { product_id }
       : { product_id: null };
@@ -103,10 +117,23 @@ export default async function createConversationController(req, res) {
       )?.[0];
 
       if (existingConversationId) {
-        const existingConversation = await loadConversationPayload(existingConversationId);
+        const existingConversation = await loadConversationPayload(existingConversationId, userId);
 
         return res.status(200).json(existingConversation);
       }
+    }
+
+    const blockStatus = await getUserBlockStatus(userId, otherParticipantId);
+    if (blockStatus.isBlockedByMe) {
+      return res.status(403).json({
+        message: 'You blocked this user. Unblock them to start a conversation.',
+      });
+    }
+
+    if (blockStatus.hasBlockedMe) {
+      return res.status(403).json({
+        message: 'This user has blocked you. Messaging is unavailable.',
+      });
     }
 
     const conversation = await Conversation.create({
@@ -126,7 +153,7 @@ export default async function createConversationController(req, res) {
       )
     );
 
-    const createdConversation = await loadConversationPayload(conversation.id);
+    const createdConversation = await loadConversationPayload(conversation.id, userId);
 
     res.status(201).json(createdConversation);
   } catch (error) {

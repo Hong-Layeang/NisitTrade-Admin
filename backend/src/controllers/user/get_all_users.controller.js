@@ -1,6 +1,8 @@
 import { Op, fn, col } from 'sequelize';
 import models from '../../models/index.js';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
+import { getUserBlockStatuses } from '../../utils/user-blocks.js';
+import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
 
 const { User, University, UserFollow } = models;
 
@@ -25,7 +27,7 @@ export default async function getAllUsersController(req, res) {
 
     const { count, rows } = await User.findAndCountAll({
       where,
-      attributes: ['id', 'full_name', 'email', 'profile_image', 'role', 'university_id', 'created_at', 'updated_at'],
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'role', 'university_id', 'created_at', 'updated_at', 'last_seen_at'],
       include: [
         {
           model: University,
@@ -39,7 +41,7 @@ export default async function getAllUsersController(req, res) {
 
     const userIds = rows.map((user) => user.id);
 
-    const [followRows, followerCountsRaw, followingCountsRaw] = await Promise.all([
+    const [followRows, followerCountsRaw, followingCountsRaw, blockStatuses, presenceByUserId] = await Promise.all([
       userIds.length
         ? UserFollow.findAll({
             where: {
@@ -72,6 +74,12 @@ export default async function getAllUsersController(req, res) {
             raw: true,
           })
         : Promise.resolve([]),
+      userIds.length
+        ? getUserBlockStatuses(requesterId, userIds)
+        : Promise.resolve(new Map()),
+      userIds.length
+        ? getPresenceForUserIds(userIds)
+        : Promise.resolve(new Map()),
     ]);
 
     const followingIds = new Set(followRows.map((row) => row.following_id));
@@ -88,20 +96,31 @@ export default async function getAllUsersController(req, res) {
       ]),
     );
 
-    const users = await Promise.all(rows.map(async (user) => ({
-      id: user.id,
-      full_name: user.full_name,
-      email: user.email,
-      profile_image: await presignIfS3Url(user.profile_image),
-      role: user.role,
-      university_id: user.university_id,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      University: user.University,
-      follower_count: followerCountByUserId.get(user.id) ?? 0,
-      following_count: followingCountByUserId.get(user.id) ?? 0,
-      is_following: user.id === requesterId ? false : followingIds.has(user.id),
-    })));
+    const users = await Promise.all(rows.map(async (user) => {
+      const presence = presenceByUserId.get(Number(user.id)) ?? {
+        is_online: false,
+        last_seen_at: user.last_seen_at ?? null,
+      };
+
+      return {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        profile_image: await presignIfS3Url(user.profile_image),
+        role: user.role,
+        university_id: user.university_id,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        University: user.University,
+        follower_count: followerCountByUserId.get(user.id) ?? 0,
+        following_count: followingCountByUserId.get(user.id) ?? 0,
+        is_following: user.id === requesterId ? false : followingIds.has(user.id),
+        is_blocked_by_me: blockStatuses.get(Number(user.id))?.isBlockedByMe ?? false,
+        has_blocked_me: blockStatuses.get(Number(user.id))?.hasBlockedMe ?? false,
+        is_online: presence.is_online,
+        last_seen_at: presence.last_seen_at,
+      };
+    }));
 
     res.json({ total: count, items: users });
   } catch (error) {

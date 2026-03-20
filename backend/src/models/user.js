@@ -42,6 +42,10 @@ export default (sequelize, DataTypes) => {
       type: DataTypes.ENUM('user', 'admin'),
       defaultValue: 'user',
     },
+    last_seen_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   }, {
     tableName: 'users',
     timestamps: true,

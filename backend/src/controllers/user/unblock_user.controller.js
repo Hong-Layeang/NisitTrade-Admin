@@ -11,13 +11,13 @@ export default async function unblockUserController(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const deleted = await UserBlock.destroy({
+    if (!Number.isInteger(blockedId) || blockedId <= 0) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    await UserBlock.destroy({
       where: { blocker_id: blockerId, blocked_id: blockedId },
     });
-
-    if (deleted === 0) {
-      return res.status(404).json({ message: 'User is not blocked' });
-    }
 
     res.json({ message: 'User unblocked', blocked: false });
   } catch (error) {
