@@ -40,14 +40,6 @@ export default async function updateCommentController(req, res) {
       updateData.content = content;
     }
 
-    if (req.body?.rating !== undefined) {
-      const rating = req.body.rating ? parseInt(req.body.rating, 10) : null;
-      if (rating !== null && (rating < 1 || rating > 5)) {
-        return res.status(400).json({ error: 'Rating must be between 1 and 5' });
-      }
-      updateData.rating = rating;
-    }
-
     await comment.update(updateData);
 
     const updatedComment = await Comment.findByPk(commentId, {

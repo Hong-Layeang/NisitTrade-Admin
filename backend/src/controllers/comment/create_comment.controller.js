@@ -26,17 +26,11 @@ export default async function createCommentController(req, res) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    const rating = req.body.rating ? parseInt(req.body.rating, 10) : null;
-    if (rating !== null && (rating < 1 || rating > 5)) {
-      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
-    }
-
     const comment = await Comment.create({
       commentable_type: 'Product',
       commentable_id: productId,
       user_id: userId,
       content,
-      rating,
     });
 
     const commentWithUser = await Comment.findByPk(comment.id, {

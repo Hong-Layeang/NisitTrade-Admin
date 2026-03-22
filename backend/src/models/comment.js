@@ -11,14 +11,6 @@ export default (sequelize, DataTypes) => {
         len: [1, 500],
       },
     },
-    rating: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      validate: {
-        min: 1,
-        max: 5,
-      },
-    },
     commentable_type: {
       type: DataTypes.ENUM('Product', 'CommunityPost'),
       allowNull: false,
