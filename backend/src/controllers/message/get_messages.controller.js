@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { Message, ConversationParticipant, User } = models;
+const { Message, ConversationParticipant, User, MessageRead, Product, ProductImage } = models;
 
 export default async function getMessagesController(req, res) {
   try {
@@ -26,9 +26,24 @@ export default async function getMessagesController(req, res) {
         {
           model: User,
           attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id']
+        },
+        {
+          model: MessageRead,
+          attributes: ['message_id', 'user_id', 'read_at']
+        },
+        {
+          model: Product,
+          as: 'AttachedProduct',
+          attributes: ['id', 'title', 'price', 'status', 'user_id', 'category_id', 'created_at', 'updated_at'],
+          include: [
+            {
+              model: ProductImage,
+              attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+            }
+          ]
         }
       ],
-      order: [['sent_at', 'ASC']],
+      order: [['sent_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });

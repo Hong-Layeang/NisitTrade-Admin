@@ -1,7 +1,7 @@
 import models from '../../models/index.js';
 import serializeCommunityPost from './serialize_post.js';
 
-const { CommunityPost, CommunityPostLike, User, University } = models;
+const { CommunityPost, Like, SavedItem, Comment, User, University } = models;
 
 export default async function createCommunityPostController(req, res) {
   try {
@@ -64,10 +64,24 @@ export default async function createCommunityPostController(req, res) {
           ],
         },
         {
-          model: CommunityPostLike,
+          model: Like,
+          as: 'Likes',
           where: { user_id: userId },
           required: false,
-          attributes: ['id', 'user_id', 'community_post_id'],
+          attributes: ['id', 'user_id', 'likeable_id'],
+        },
+        {
+          model: SavedItem,
+          as: 'SavedItems',
+          where: { user_id: userId },
+          required: false,
+          attributes: ['id', 'user_id', 'saveable_id'],
+        },
+        {
+          model: Comment,
+          as: 'Comments',
+          required: false,
+          attributes: ['id', 'content', 'user_id', 'commentable_id', 'rating', 'created_at', 'updated_at'],
         },
       ],
     });

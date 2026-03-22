@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { CommunityPost, CommunityPostComment } = models;
+const { CommunityPost, Comment } = models;
 
 export default async function deleteCommunityCommentController(req, res) {
   try {
@@ -17,8 +17,8 @@ export default async function deleteCommunityCommentController(req, res) {
       return res.status(404).json({ message: 'Community post not found' });
     }
 
-    const comment = await CommunityPostComment.findByPk(commentId);
-    if (!comment || Number(comment.community_post_id) !== Number(post.id)) {
+    const comment = await Comment.findByPk(commentId);
+    if (!comment || comment.commentable_type !== 'CommunityPost' || comment.commentable_id !== parseInt(postId, 10)) {
       return res.status(404).json({ message: 'Comment not found' });
     }
 

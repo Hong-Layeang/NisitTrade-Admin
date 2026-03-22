@@ -20,7 +20,7 @@ export default async function deleteCommentController(req, res) {
     }
 
     // Verify the comment belongs to the specified product
-    if (comment.product_id !== parseInt(productId, 10)) {
+    if (comment.commentable_type !== 'Product' || comment.commentable_id !== parseInt(productId, 10)) {
       return res.status(400).json({ message: 'Comment does not belong to this product' });
     }
 

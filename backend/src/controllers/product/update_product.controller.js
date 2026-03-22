@@ -1,68 +1,74 @@
 import models from '../../models/index.js';
 import { enrichProductWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
-const { Product, User, Category, ProductImage } = models;
+const { Product, ProductImage, User, Category } = models;
 
 export default async function updateProductController(req, res) {
   try {
-    const { id } = req.params;
-    const { title, description, price, category_id } = req.body;
-    const user_id = req.user?.id;
-    const user_role = req.user?.role;
+    const productId = parseInt(req.params.id, 10);
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    const product = await Product.findByPk(id);
-
+    const product = await Product.findByPk(productId);
     if (!product) {
-      return res.status(404).json({ 
-        message: 'Product not found' 
-      });
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Check if user owns the product (optional, depends on your auth requirements)
-    if (user_id && product.user_id !== user_id && user_role !== 'admin') {
-      return res.status(403).json({ 
-        message: 'You do not have permission to update this product' 
-      });
+    // Check authorization - only owner or admin can update
+    if (product.user_id !== userId && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    const updates = {};
+    const { title, description, price, category_id, status, image_urls } = req.body;
 
+    // Validate updates
+    const updateData = {};
     if (title !== undefined) {
-      if (title.trim() === '') {
-        return res.status(400).json({ 
-          message: 'Product title cannot be empty' 
-        });
+      if (!title.trim()) {
+        return res.status(400).json({ error: 'Title cannot be empty' });
       }
-      updates.title = title.trim();
+      updateData.title = title.trim();
     }
-
     if (description !== undefined) {
-      updates.description = description?.trim() || null;
+      updateData.description = description?.trim() || null;
     }
-
     if (price !== undefined) {
       if (price <= 0) {
-        return res.status(400).json({ 
-          message: 'Price must be greater than 0' 
-        });
+        return res.status(400).json({ error: 'Price must be greater than 0' });
       }
-      updates.price = price;
+      updateData.price = price;
     }
-
     if (category_id !== undefined) {
-      const category = await Category.findByPk(category_id);
-      if (!category) {
-        return res.status(404).json({ 
-          message: 'Category not found' 
-        });
+      updateData.category_id = category_id;
+    }
+    if (status !== undefined) {
+      const validStatuses = ['available', 'reserved', 'sold', 'hidden'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
       }
-      updates.category_id = category_id;
+      updateData.status = status;
     }
 
-    await product.update(updates);
+    // Update product
+    await product.update(updateData);
 
-    // Fetch updated product with associations
-    const updatedProduct = await Product.findByPk(id, {
+    // Update images if provided
+    if (Array.isArray(image_urls) && image_urls.length > 0) {
+      // Delete old images
+      await ProductImage.destroy({ where: { product_id: productId } });
+      // Create new images
+      await ProductImage.bulkCreate(
+        image_urls.map(url => ({
+          product_id: productId,
+          image_url: url,
+        }))
+      );
+    }
+
+    // Fetch updated product with relations
+    const updatedProduct = await Product.findByPk(productId, {
       include: [
         {
           model: User,
@@ -74,20 +80,17 @@ export default async function updateProductController(req, res) {
         },
         {
           model: ProductImage,
-          attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+          attributes: ['id', 'image_url', 'created_at', 'updated_at']
         }
       ]
     });
 
-    // Enrich with pre-signed URLs
-    const enrichedProduct = await enrichProductWithPresignedUrls(updatedProduct);
-
+    const enrichedProduct = await enrichProductWithPresignedUrls(updatedProduct.toJSON());
     res.json(enrichedProduct);
   } catch (error) {
     console.error('Error updating product:', error);
-    res.status(500).json({ 
-      message: 'Failed to update product',
-      error: error.message 
-    });
+    const status = error.message.includes('Access denied') ? 403 :
+                   error.message.includes('not found') ? 404 : 400;
+    res.status(status).json({ error: error.message });
   }
 }

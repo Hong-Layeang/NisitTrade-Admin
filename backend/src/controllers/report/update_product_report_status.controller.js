@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 
-const { ProductReport, User, Product } = models;
+const { Report, User, Product } = models;
 
 const VALID_STATUSES = ['open', 'reviewing', 'closed'];
 
@@ -13,27 +13,31 @@ export default async function updateProductReportStatusController(req, res) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const report = await ProductReport.findByPk(id);
-    if (!report) {
+    const report = await Report.findByPk(id);
+    if (!report || report.reportable_type !== 'Product') {
       return res.status(404).json({ message: 'Report not found' });
     }
 
     await report.update({ status });
 
-    const updatedReport = await ProductReport.findByPk(id, {
+    const updatedReport = await Report.findByPk(id, {
       include: [
         {
           model: User,
           attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
-        },
-        {
-          model: Product,
-          attributes: ['id', 'title', 'price', 'status', 'user_id', 'category_id', 'created_at', 'updated_at']
         }
       ]
     });
 
-    return res.json(updatedReport);
+    // Fetch the related product
+    const product = await Product.findByPk(updatedReport.reportable_id, {
+      attributes: ['id', 'title', 'price', 'status', 'user_id', 'category_id', 'created_at', 'updated_at']
+    });
+
+    return res.json({
+      ...updatedReport.toJSON(),
+      Product: product
+    });
   } catch (error) {
     console.error('Error updating report status:', error);
     return res.status(500).json({

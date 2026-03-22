@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { pathToFileURL } from 'url';
 import seedData from './seed.js';
 import connectDB from '../../config/database.js'
 
@@ -24,4 +25,9 @@ const runSeeder = async () => {
   }
 };
 
-runSeeder();
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  runSeeder();
+}

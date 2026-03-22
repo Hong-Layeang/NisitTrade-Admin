@@ -1,5 +1,6 @@
-import models from '../../models/index.js';
+﻿import models from '../../models/index.js';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
+import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
 
 const { User, University, UserFollow } = models;
 
@@ -17,7 +18,7 @@ export default async function getUserController(req, res) {
     const isAdmin = requesterRole === 'admin';
 
     const user = await User.findByPk(id, {
-      attributes: ['id', 'full_name', 'email', 'profile_image', 'cover_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at'],
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'cover_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at', 'last_seen_at'],
       include: [
         {
           model: University,
@@ -39,10 +40,16 @@ export default async function getUserController(req, res) {
         : Promise.resolve(0),
     ]);
 
-    const [presignedProfileImage, presignedCoverImage] = await Promise.all([
+    const [presignedProfileImage, presignedCoverImage, presenceByUserId] = await Promise.all([
       presignIfS3Url(user.profile_image),
       presignIfS3Url(user.cover_image),
+      getPresenceForUserIds([user.id]),
     ]);
+
+    const presence = presenceByUserId.get(Number(user.id)) ?? {
+      is_online: false,
+      last_seen_at: user.last_seen_at ?? null,
+    };
 
     const basePublicProfile = {
       id: user.id,
@@ -59,6 +66,9 @@ export default async function getUserController(req, res) {
       follower_count: followerCount,
       following_count: followingCount,
       is_following: Boolean(isFollowingTarget),
+      email_domain: user.email ? (user.email.split('@')[1] ?? null) : null,
+      is_online: presence.is_online,
+      last_seen_at: presence.last_seen_at,
     };
 
     // Return full profile to owner/admin; return only public fields to others

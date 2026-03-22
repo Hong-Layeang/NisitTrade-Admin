@@ -34,24 +34,32 @@ export default (sequelize, DataTypes) => {
       foreignKey: 'user_id',
     });
 
-    CommunityPost.hasMany(models.CommunityPostLike, {
-      foreignKey: 'community_post_id',
-      onDelete: 'CASCADE',
+    // associations
+    CommunityPost.hasMany(models.Like, {
+      foreignKey: 'likeable_id',
+      constraints: false,
+      scope: {
+        likeable_type: 'CommunityPost',
+      },
+      as: 'Likes',
     });
 
-    CommunityPost.hasMany(models.CommunityPostComment, {
-      foreignKey: 'community_post_id',
-      onDelete: 'CASCADE',
+    CommunityPost.hasMany(models.Comment, {
+      foreignKey: 'commentable_id',
+      constraints: false,
+      scope: {
+        commentable_type: 'CommunityPost',
+      },
+      as: 'Comments',
     });
 
-    CommunityPost.hasMany(models.CommunityPostReport, {
-      foreignKey: 'community_post_id',
-      onDelete: 'CASCADE',
-    });
-
-    CommunityPost.hasMany(models.SavedCommunityPost, {
-      foreignKey: 'community_post_id',
-      onDelete: 'CASCADE',
+    CommunityPost.hasMany(models.SavedItem, {
+      foreignKey: 'saveable_id',
+      constraints: false,
+      scope: {
+        saveable_type: 'CommunityPost',
+      },
+      as: 'SavedItems',
     });
   };
 

@@ -11,6 +11,9 @@ import getUserSavedListingsController from '../controllers/saved/get_user_saved_
 import getUserSavedCommunityPostsController from '../controllers/saved/get_user_saved_community_posts.controller.js';
 import followUserController from '../controllers/user/follow_user.controller.js';
 import unfollowUserController from '../controllers/user/unfollow_user.controller.js';
+import blockUserController from '../controllers/user/block_user.controller.js';
+import unblockUserController from '../controllers/user/unblock_user.controller.js';
+import createUserReportController from '../controllers/user/create_user_report.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { uploadAvatar, uploadCover } from '../middlewares/upload.middleware.js';
 
@@ -29,5 +32,8 @@ router.get('/:id/saved/posts', authMiddleware, getUserSavedCommunityPostsControl
 
 router.post('/:id/follow', authMiddleware, followUserController); // follow
 router.delete('/:id/follow', authMiddleware, unfollowUserController); // unfollow
+router.post('/:id/reports', authMiddleware, createUserReportController); // report user
+router.post('/:id/block', authMiddleware, blockUserController); // block user
+router.delete('/:id/block', authMiddleware, unblockUserController); // unblock user
 
 export default router;

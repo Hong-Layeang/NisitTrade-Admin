@@ -1,6 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 import authRoutes from '../src/routes/auth.routes.js';
 import categoryRoutes from '../src/routes/category.routes.js';
@@ -15,11 +17,19 @@ import userRoutes from '../src/routes/user.routes.js';
 import connectDB, { testConnection } from '../src/config/database.js';
 import '../src/models/index.js';
 import { multerErrorMiddleware } from '../src/middlewares/multer_error.middleware.js';
-import ensureCommunityPostSchema from '../src/utils/ensure-community-post-schema.js';
+import { initPresenceSocket } from '../src/websockets/presence.socket.js';
+import { initChatSocket } from '../src/websockets/chat.socket.js';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+    },
+});
 const router = express.Router();
 const PORT = process.env.PORT || 4001
 
@@ -52,15 +62,19 @@ app.use((err, req, res, next) => {
     return res.status(500).json({ message: 'Internal server error' });
 });
 
+initPresenceSocket(io);
+initChatSocket(io);
+
+app.set('io', io);
+
 const startServer = async () => {
     try {
         await testConnection();
         if (process.env.NODE_ENV !== 'production') {
             await connectDB.sync();
         }
-        await ensureCommunityPostSchema();
         console.log('Database connected');
-        app.listen(PORT, '0.0.0.0', () => {
+        httpServer.listen(PORT, '0.0.0.0', () => {
             console.log(`Server running on port ${PORT}`);
         });
     } catch (error) {

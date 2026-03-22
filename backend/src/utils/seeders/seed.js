@@ -839,6 +839,7 @@
 
 
 import models from '../../models/index.js';
+import { pathToFileURL } from 'url';
 
 const { Category, University } = models;
 
@@ -862,16 +863,6 @@ const CATEGORY_IMGS = {
 const seedData = async () => {
   try {
     console.log('🌱 Starting category-only seeding...');
-
-    // Seed universities (find-or-create so re-runs are safe)
-    const [cadt] = await University.findOrCreate({
-      where: { domain: 'student.cadt.edu.kh' },
-      defaults: {
-        name: 'Cambodian Academy of Digital Technology',
-        domain: 'student.cadt.edu.kh',
-      },
-    });
-    console.log(`✅ University seeded: ${cadt.name} (${cadt.domain})`);
 
     // Drop and recreate the categories table (resets all rows and IDs)
     await Category.sync({ force: true });
@@ -902,5 +893,9 @@ const seedData = async () => {
 
 export default seedData;
 
-// Execute the seed
-seedData();
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  seedData();
+}

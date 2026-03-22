@@ -57,7 +57,12 @@ export default async function listProductsController(req, res) {
         },
         {
           model: Like,
-          attributes: ['id', 'user_id', 'product_id', 'created_at', 'updated_at'],
+          as: 'Likes',
+          attributes: ['id', 'user_id', 'likeable_id', 'likeable_type', 'created_at', 'updated_at'],
+          where: {
+            likeable_type: 'Product'
+          },
+          required: false,
           include: [
             {
               model: User,
@@ -67,7 +72,12 @@ export default async function listProductsController(req, res) {
         },
         {
           model: Comment,
-          attributes: ['id', 'content', 'rating', 'user_id', 'product_id', 'created_at', 'updated_at'],
+          as: 'Comments',
+          attributes: ['id', 'content', 'rating', 'user_id', 'commentable_id', 'commentable_type', 'created_at', 'updated_at'],
+          where: {
+            commentable_type: 'Product'
+          },
+          required: false,
           include: [
             {
               model: User,

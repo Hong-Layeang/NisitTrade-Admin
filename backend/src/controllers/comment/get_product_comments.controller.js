@@ -7,7 +7,10 @@ export default async function getProductCommentsController(req, res) {
     const { productId } = req.params;
 
     const comments = await Comment.findAll({
-      where: { product_id: productId },
+      where: { 
+        commentable_type: 'Product',
+        commentable_id: productId 
+      },
       include: [
         {
           model: User,
