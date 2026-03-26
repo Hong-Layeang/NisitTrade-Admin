@@ -1,6 +1,20 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import { adminLogout } from "../../lib/api.ts";
 
 const Header: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await adminLogout();
+    } catch {
+      // Token is still cleared by adminLogout finally block.
+    } finally {
+      navigate("/login", { replace: true });
+    }
+  };
+
   return (
     <div
       className={[
@@ -33,6 +47,15 @@ const Header: React.FC = () => {
         <div className="w-9 h-9 rounded-full grid place-items-center ml-1 bg-[#e6f4ff] text-[#1d4ed8] dark:bg-blue-950/40 dark:text-blue-300">
           <i className="bi bi-person" />
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="ml-1 inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-800 px-3 h-9 text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-800"
+          title="Logout"
+        >
+          <i className="bi bi-box-arrow-right" />
+          Logout
+        </button>
       </div>
     </div>
   );

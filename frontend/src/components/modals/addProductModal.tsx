@@ -1,30 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type Category = "Electronic" | "Clothing" | "Accessory";
-
 export type AddProductPayload = {
   title: string;
   description?: string;
-  category: Category;
+  category: string;
   price: number;
   imageFile?: File | null;
 };
 
 type Props = {
   open: boolean;
+  categories: string[];
   onClose: () => void;
   onSubmit: (data: AddProductPayload) => void;
 };
 
-const categories: Category[] = ["Electronic", "Clothing", "Accessory"];
-
-const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
+const AddProductModal: React.FC<Props> = ({ open, categories, onClose, onSubmit }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const btnCloseRef = useRef<HTMLButtonElement | null>(null);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [category, setCategory] = useState<Category>("Clothing");
+  const [category, setCategory] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [image, setImage] = useState<File | null>(null);
   const preview = useMemo(() => (image ? URL.createObjectURL(image) : ""), [image]);
@@ -34,11 +31,11 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
     if (open) {
       setTitle("");
       setDesc("");
-      setCategory("Clothing");
+      setCategory(categories[0] || "");
       setPrice("");
       setImage(null);
     }
-  }, [open]);
+  }, [categories, open]);
 
   // Close on ESC / click outside
   useEffect(() => {
@@ -184,9 +181,13 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={categories.length === 0}
                 className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
               >
+                {categories.length === 0 && (
+                  <option value="">No categories available</option>
+                )}
                 {categories.map((c) => (
                   <option key={c} value={c}>
                     {c}

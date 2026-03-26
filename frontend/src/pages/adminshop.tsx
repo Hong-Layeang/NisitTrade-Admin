@@ -2,10 +2,35 @@ import React, { useMemo, useState, useEffect } from "react";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
 import { ExportButtons } from "../components/ui/exportButton.tsx"; 
 import AddProductModal, { AddProductPayload } from "../components/modals/addProductModal.tsx";
+import {
+  createProduct,
+  fetchCategories,
+  fetchProducts,
+  type ApiCategory,
+  type ApiProduct,
+} from "../lib/api.ts";
 
 // ---- Types & data ----
-type Category = "Electronic" | "Clothing" | "Accessory";
-type Status = "Active" | "Sold";
+type Category = string;
+type Status = "all" | "available" | "reserved" | "sold" | "hidden";
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toISOString().slice(0, 10);
+}
+
+function mapProduct(item: ApiProduct): Product {
+  return {
+    id: item.id,
+    title: item.title,
+    category: item.Category?.name || "Unknown",
+    price: Number(item.price),
+    status: item.status,
+    createdAt: formatDate(item.createdAt || item.created_at),
+  };
+}
 
 type Product = {
   id: number;
@@ -16,34 +41,58 @@ type Product = {
   createdAt: string;
 };
 
-const initialData: Product[] = [
-  { id: 100000, title: "Mouse",     category: "Electronic", price: 5,   status: "Active", createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",     category: "Electronic", price: 100, status: "Sold",   createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",    category: "Electronic", price: 250, status: "Active", createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",  category: "Electronic", price: 30,  status: "Active", createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",     category: "Clothing",   price: 15,  status: "Active", createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",     category: "Clothing",   price: 50,  status: "Sold",   createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",    category: "Clothing",   price: 25,  status: "Active", createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",    category: "Clothing",   price: 75,  status: "Active", createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",      category: "Accessory",  price: 1,   status: "Sold",   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",    category: "Electronic", price: 10,  status: "Active", createdAt: "2024-12-10" },
-];
-
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc";
 
 const AdminShop: React.FC = () => {
-  // IMPORTANT: move the dataset to state, so we can append new products
-  const [rows, setRows] = useState<Product[]>(initialData);
+  const [rows, setRows] = useState<Product[]>([]);
+  const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
-  const [status, setStatus] = useState<"All" | Status>("All");
+  const [status, setStatus] = useState<Status>("all");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
   // Add product modal state
   const [openAdd, setOpenAdd] = useState(false);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, number>();
+    apiCategories.forEach((c) => {
+      map.set(c.name, c.id);
+    });
+    return map;
+  }, [apiCategories]);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [categoriesData, productsData] = await Promise.all([
+          fetchCategories(),
+          fetchProducts(),
+        ]);
+
+        setApiCategories(categoriesData);
+        setRows(productsData.map(mapProduct));
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to load data"
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
 
   // Filtering & sorting based on local state rows
   const filtered = useMemo(() => {
@@ -52,7 +101,7 @@ const AdminShop: React.FC = () => {
 
     if (q) data = data.filter((p) => p.title.toLowerCase().includes(q) || String(p.id).includes(q));
     if (category !== "All") data = data.filter((p) => p.category === category);
-    if (status !== "All") data = data.filter((p) => p.status === status);
+    if (status !== "all") data = data.filter((p) => p.status === status);
 
     data.sort((a, b) => {
       switch (sortBy) {
@@ -98,31 +147,40 @@ const AdminShop: React.FC = () => {
     exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
 
   // ---- Add Product
-  const handleAddProduct = (data: AddProductPayload) => {
-    // Simple new ID strategy: last id + 1 (or timestamp)
-    const nextId = rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 100000;
-    const today = new Date();
-    const createdAt = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-      today.getDate()
-    ).padStart(2, "0")}`;
+  const handleAddProduct = async (data: AddProductPayload) => {
+    const categoryId = categoryMap.get(data.category);
+    if (!categoryId) {
+      alert("Selected category not found.");
+      return;
+    }
 
-    const newRow: Product = {
-      id: nextId,
-      title: data.title,
-      category: data.category,
-      price: data.price,
-      status: "Active",
-      createdAt,
-    };
+    try {
+      const created = await createProduct({
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        category_id: categoryId,
+      });
 
-    setRows((prev) => [newRow, ...prev]); // prepend for visibility
-    setOpenAdd(false);
+      setRows((prev) => [mapProduct(created), ...prev]);
+      setOpenAdd(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to create product");
+    }
   };
+
+  const categoryOptions = apiCategories.map((c) => c.name);
 
   return (
     <>
       {/* Title */}
       <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">Admin Shop</h2>
+
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
 
       {/* Card */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
@@ -149,20 +207,24 @@ const AdminShop: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
 
             {/* Status */}
             <select
               className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
               value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
+              onChange={(e) => setStatus(e.target.value as Status)}
             >
-              <option value="All">Status</option>
-              <option value="Active">Active</option>
-              <option value="Sold">Sold</option>
+              <option value="all">Status</option>
+              <option value="available">Available</option>
+              <option value="reserved">Reserved</option>
+              <option value="sold">Sold</option>
+              <option value="hidden">Hidden</option>
             </select>
 
             {/* Sort */}
@@ -185,6 +247,7 @@ const AdminShop: React.FC = () => {
             <button
               type="button"
               onClick={() => setOpenAdd(true)}
+              disabled={categoryOptions.length === 0}
               className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:opacity-95"
               title="Add Product"
             >
@@ -218,8 +281,15 @@ const AdminShop: React.FC = () => {
             </thead>
 
             <tbody>
+              {!isLoading && visible.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                    No products found
+                  </td>
+                </tr>
+              )}
               {visible.map((p) => {
-                const isActive = p.status === "Active";
+                const isActive = p.status === "available" || p.status === "reserved";
                 const pill = isActive
                   ? "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-300"
                   : "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-300";
@@ -234,7 +304,7 @@ const AdminShop: React.FC = () => {
                     </td>
                     <td className="py-3 px-2">
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${pill}`}>
-                        {p.status}
+                        {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
                       </span>
                     </td>
                     <td className="py-3 px-2">
@@ -294,6 +364,7 @@ const AdminShop: React.FC = () => {
       {/* Modal */}
       <AddProductModal
         open={openAdd}
+        categories={categoryOptions}
         onClose={() => setOpenAdd(false)}
         onSubmit={handleAddProduct}
       />

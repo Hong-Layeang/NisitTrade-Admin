@@ -1,103 +1,138 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
-type Category = "Electronic" | "Clothing" | "Accessory";
+import {
+  createProduct,
+  fetchCategories,
+  fetchProducts,
+  type ApiCategory,
+  type ApiProduct,
+} from "../lib/api.ts";
+
+// ---- Types & data ----
+type Category = string;
+type Status = "all" | "available" | "reserved" | "sold" | "hidden";
+
 type Product = {
   id: number;
   title: string;
-  userId: number;
   category: Category;
   price: number;
-  reported?: boolean;
+  status: Status;
   createdAt: string;
 };
 
-const initialData: Product[] = [
-  { id: 100000, title: "shirt",   userId: 10000, category: "Clothing",  price: 60,  reported: true,  createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",   userId: 10001, category: "Electronic", price: 100, createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",  userId: 10002, category: "Electronic", price: 250, createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",userId: 10003, category: "Electronic", price: 30,  createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",   userId: 10004, category: "Clothing",  price: 35.5,createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",   userId: 10005, category: "Clothing",  price: 10,  createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",  userId: 10006, category: "Clothing",  price: 7.75,createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",  userId: 10007, category: "Clothing",  price: 7.75,createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",    userId: 10008, category: "Accessory", price: 1,   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",  userId: 10009, category: "Electronic", price: 10,  createdAt: "2024-12-10" },
-];
-
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
 
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toISOString().slice(0, 10);
+}
+
+function mapProduct(item: ApiProduct): Product {
+  return {
+    id: item.id,
+    title: item.title,
+    category: item.Category?.name || "Unknown",
+    price: Number(item.price),
+    status: item.status,
+    createdAt: formatDate(item.createdAt || item.created_at),
+  };
+}
+
 const UsersProduct: React.FC = () => {
+  const [rows, setRows] = useState<Product[]>([]);
+  const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
+  const [status, setStatus] = useState<Status>("all");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
-  const [reportedOnly, setReportedOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   const pageSize = 10;
 
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [categoriesData, productsData] = await Promise.all([
+          fetchCategories(),
+          fetchProducts(),
+        ]);
+
+        setApiCategories(categoriesData);
+        setRows(productsData.map(mapProduct));
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to load data"
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
   const filtered = useMemo(() => {
-    let rows = [...initialData];
+    let data = [...rows];
     const q = search.toLowerCase().trim();
 
     if (q) {
-      rows = rows.filter(
+      data = data.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
-          String(p.id).includes(q) ||
-          String(p.userId).includes(q)
+          String(p.id).includes(q)
       );
     }
-    if (category !== "All") rows = rows.filter((p) => p.category === category);
-    if (reportedOnly) rows = rows.filter((p) => !!p.reported);
+    if (category !== "All") data = data.filter((p) => p.category === category);
+    if (status !== "all") data = data.filter((p) => p.status === status);
 
-    rows.sort((a, b) => {
+    data.sort((a, b) => {
       switch (sortBy) {
         case "newest": return +new Date(b.createdAt) - +new Date(a.createdAt);
         case "oldest": return +new Date(a.createdAt) - +new Date(b.createdAt);
         case "price-asc": return a.price - b.price;
         case "price-desc": return b.price - a.price;
         case "title-asc": return a.title.localeCompare(b.title);
-        case "reported-first":
-          if ((b.reported ? 1 : 0) !== (a.reported ? 1 : 0)) return (b.reported ? 1 : 0) - (a.reported ? 1 : 0);
-          return +new Date(b.createdAt) - +new Date(a.createdAt);
+        case "reported-first": return 0;
         default: return 0;
       }
     });
 
-    return rows;
-  }, [search, category, sortBy, reportedOnly]);
+    return data;
+  }, [rows, search, category, status, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => setPage(1), [search, category, sortBy, reportedOnly]);
-
-  // Remove button style (exact colors requested)
-  const removeBtn =
-    "inline-flex items-center justify-center h-8 px-3 rounded-md text-xs font-medium " +
-    "border border-[#FF004F] text-[#FF004F] bg-[#FFC5C5] " +
-    "hover:brightness-95 active:brightness-90 " +
-    "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
+  useEffect(() => setPage(1), [search, category, status, sortBy]);
 
   // --- Export setup ---
   const columns: ExportColumn[] = [
     { header: "Product ID",    dataKey: "id" },
     { header: "Product Title", dataKey: "title" },
-    { header: "User ID",       dataKey: "userId" },
     { header: "Category",      dataKey: "category" },
     { header: "Price",         dataKey: "priceFormatted" },
-    { header: "Reported",      dataKey: "reportedLabel" },
+    { header: "Status",        dataKey: "status" },
     { header: "Created At",    dataKey: "createdAt" },
   ];
 
   const rowsForExport = filtered.map((p) => ({
     id: p.id,
     title: p.title,
-    userId: p.userId,
     category: p.category,
     priceFormatted: `$ ${p.price}`,
-    reportedLabel: p.reported ? "Yes" : "No",
+    status: p.status,
     createdAt: p.createdAt,
   }));
 
@@ -107,9 +142,17 @@ const UsersProduct: React.FC = () => {
   const onExportDocx = () =>
     exportTableToDocx({ title: "User Product", columns, rows: rowsForExport });
 
+  const categoryOptions = apiCategories.map((c) => c.name);
+
   return (
     <>
       <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">User Product</h2>
+
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
         {/* Toolbar */}
@@ -123,7 +166,7 @@ const UsersProduct: React.FC = () => {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search product / ID / user ID"
+                placeholder="Search product / ID"
                 className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
             </div>
@@ -135,9 +178,24 @@ const UsersProduct: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+
+            {/* Status */}
+            <select
+              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as Status)}
+            >
+              <option value="all">Status</option>
+              <option value="available">Available</option>
+              <option value="reserved">Reserved</option>
+              <option value="sold">Sold</option>
+              <option value="hidden">Hidden</option>
             </select>
 
             {/* Sort */}
@@ -154,17 +212,6 @@ const UsersProduct: React.FC = () => {
               <option value="reported-first">Reported First</option>
             </select>
 
-            {/* Reported Only */}
-            <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={reportedOnly}
-                onChange={(e) => setReportedOnly(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand/50"
-              />
-              Reported only
-            </label>
-
             {/* Export buttons */}
             <ExportButtons onPDF={onExportPDF} onDocx={onExportDocx} variant="brand" size="md" />
           </div>
@@ -176,47 +223,67 @@ const UsersProduct: React.FC = () => {
             <colgroup>
               <col style={{ width: "140px" }} />
               <col style={{ width: "360px" }} />
-              <col style={{ width: "130px" }} />
               <col style={{ width: "160px" }} />
               <col style={{ width: "110px" }} />
-              <col style={{ width: "120px" }} />
-              <col style={{ width: "120px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "110px" }} />
             </colgroup>
 
             <thead>
               <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
                 <th className="py-3 px-2 text-slate-500 font-medium">Product ID</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Product Title</th>
-                <th className="py-3 px-2 text-slate-500 font-medium">User ID</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Category</th>
                 <th className="py-3 px-2 text-slate-500 font-medium text-right">Price</th>
-                <th className="py-3 px-2 text-slate-500 font-medium">Reported</th>
-                <th className="py-3 px-2 text-slate-500 font-medium text-right">Action</th>
+                <th className="py-3 px-2 text-slate-500 font-medium">Status</th>
+                <th className="py-3 px-2 text-slate-500 font-medium text-center">Action</th>
               </tr>
             </thead>
 
             <tbody>
+              {!isLoading && visible.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                    No products found
+                  </td>
+                </tr>
+              )}
               {visible.map((p) => {
-                const redTxt = p.reported ? "text-red-600" : "";
-                const redPrice = p.reported ? "text-red-600" : "text-slate-900 dark:text-slate-100";
+                const isActive = p.status === "available" || p.status === "reserved";
+                const pill = isActive
+                  ? "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-300"
+                  : "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-300";
+
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                    <td className={`py-3 px-2 tabular-nums ${redTxt}`}>{p.id}</td>
-                    <td className="py-3 px-2">
-                      <span className={`truncate block ${redTxt}`}>{p.title}</span>
-                    </td>
-                    <td className={`py-3 px-2 tabular-nums ${redTxt}`}>{p.userId}</td>
-                    <td className={`py-3 px-2 ${redTxt}`}>{p.category}</td>
+                    <td className="py-3 px-2">{p.id}</td>
+                    <td className="py-3 px-2">{p.title}</td>
+                    <td className="py-3 px-2 text-slate-500">{p.category}</td>
                     <td className="py-3 px-2 text-right">
-                      <span className={`font-semibold tabular-nums ${redPrice}`}>$ {p.price}</span>
+                      <span className="font-semibold tabular-nums">${p.price}</span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={p.reported ? "text-red-600 font-medium" : "text-slate-500"}>{p.reported ? "Yes" : "No"}</span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${pill}`}>
+                        {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                      </span>
                     </td>
-                    <td className="py-3 px-2 text-right">
-                      <button className={removeBtn} onClick={() => alert(`Remove ${p.id}`)}>
-                        Remove
-                      </button>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          className="w-7 h-7 grid place-items-center rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                          aria-label="Edit"
+                          title="Edit"
+                        >
+                          <i className="bi bi-pencil-square" />
+                        </button>
+                        <button
+                          className="w-7 h-7 grid place-items-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+                          aria-label="Delete"
+                          title="Delete"
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
