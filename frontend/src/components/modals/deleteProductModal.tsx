@@ -3,13 +3,16 @@ import React from "react";
 // Generic — works with AdminProduct, UserProduct, or any object with id + title
 interface DeleteProductModalProps {
   open: boolean;
-  product: { id: number; title: string } | null;
+    product?: { id: number; title: string } | null;
+    user?: { id: number; name: string } | null;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, product, onClose, onConfirm }) => {
-  if (!open || !product) return null;
+const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, product, onClose, onConfirm }) => {
+    if (!open || (!product && !user)) return null;
+    const title = product ? product.title : user ? user.name : "";
+    const typeLabel = product ? "Product" : "User";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -22,14 +25,14 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, product, 
           </div>
         </div>
 
-        <h3 className="text-center text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
-          Delete Product
-        </h3>
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Are you sure you want to delete{" "}
-          <span className="font-semibold text-slate-700 dark:text-slate-200">"{product.title}"</span>?
-          <br />This action cannot be undone.
-        </p>
+              <h3 className="text-center text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                  Delete {typeLabel}
+              </h3>
+              <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">"{title}"</span>?
+                  <br />This action cannot be undone.
+              </p>
 
         <div className="flex gap-3">
           <button

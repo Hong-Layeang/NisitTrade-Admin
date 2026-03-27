@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
 type UserRow = {
   id: number;
   name: string;
@@ -28,10 +29,13 @@ const Users: React.FC = () => {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [page, setPage] = useState(1);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+    const [users, setProducts] = useState<UserRow[]>(initialUsers);
   const pageSize = 10;
 
   const filtered = useMemo(() => {
-    let rows = [...initialUsers];
+    let rows = [...users];
     const q = search.toLowerCase().trim();
 
     if (q) {
@@ -55,7 +59,7 @@ const Users: React.FC = () => {
     });
 
     return rows;
-  }, [search, sortBy]);
+  }, [users, search, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -69,6 +73,18 @@ const Users: React.FC = () => {
     "hover:brightness-95 active:brightness-90 " +
     "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
 
+  //handle confirm delete
+  const handleConfirmDelete = () => {
+    if (!selectedUser) return;
+
+    setProducts((prev) =>
+      prev.filter((p) => p.id !== selectedUser.id)
+    );
+
+    setIsDeleteOpen(false);
+    setSelectedUser(null);
+  };
+  
   // --- Export setup ---
   const columns: ExportColumn[] = [
     { header: "User ID",       dataKey: "id" },
@@ -156,7 +172,10 @@ const Users: React.FC = () => {
                   <td className="py-3 px-2">{u.phone}</td>
                   <td className="py-3 px-2"><span className="truncate block">{u.email}</span></td>
                   <td className="py-3 px-2 text-right">
-                    <button className={removeBtn} onClick={() => alert(`Remove user ${u.id}`)}>
+                    <button className={removeBtn} onClick={() => {
+                      setSelectedUser(u);
+                      setIsDeleteOpen(true);
+                    }}>
                       Remove
                     </button>
                   </td>
@@ -194,6 +213,15 @@ const Users: React.FC = () => {
           </div>
         </div>
       </div>
+      <DeleteProductModal
+        open={isDeleteOpen}
+        user={selectedUser}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 };
