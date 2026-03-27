@@ -1,38 +1,29 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
-import { ExportButtons } from "../components/ui/exportButton.tsx"; 
+import { ExportButtons } from "../components/ui/exportButton.tsx";
 import AddProductModal, { AddProductPayload } from "../components/modals/addProductModal.tsx";
+import EditProductModal, { Product } from "../components/modals/editProductModal.tsx";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
 
-// ---- Types & data ----
+// ---- Types ----
 type Category = "Electronic" | "Clothing" | "Accessory";
 type Status = "Active" | "Sold";
-
-type Product = {
-  id: number;
-  title: string;
-  category: Category;
-  price: number;
-  status: Status;
-  createdAt: string;
-};
-
-const initialData: Product[] = [
-  { id: 100000, title: "Mouse",     category: "Electronic", price: 5,   status: "Active", createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",     category: "Electronic", price: 100, status: "Sold",   createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",    category: "Electronic", price: 250, status: "Active", createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",  category: "Electronic", price: 30,  status: "Active", createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",     category: "Clothing",   price: 15,  status: "Active", createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",     category: "Clothing",   price: 50,  status: "Sold",   createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",    category: "Clothing",   price: 25,  status: "Active", createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",    category: "Clothing",   price: 75,  status: "Active", createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",      category: "Accessory",  price: 1,   status: "Sold",   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",    category: "Electronic", price: 10,  status: "Active", createdAt: "2024-12-10" },
-];
-
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc";
 
+const initialData: Product[] = [
+  { id: 100000, title: "Mouse", category: "Electronic", price: 5, status: "Active", createdAt: "2024-12-01" },
+  { id: 100001, title: "Phone", category: "Electronic", price: 100, status: "Sold", createdAt: "2024-12-02" },
+  { id: 100002, title: "Laptop", category: "Electronic", price: 250, status: "Active", createdAt: "2024-12-03" },
+  { id: 100003, title: "Keyboard", category: "Electronic", price: 30, status: "Active", createdAt: "2024-12-04" },
+  { id: 100004, title: "Shirt", category: "Clothing", price: 15, status: "Active", createdAt: "2024-12-05" },
+  { id: 100005, title: "Shoes", category: "Clothing", price: 50, status: "Sold", createdAt: "2024-12-06" },
+  { id: 100006, title: "Hoodie", category: "Clothing", price: 25, status: "Active", createdAt: "2024-12-07" },
+  { id: 100007, title: "Jacket", category: "Clothing", price: 75, status: "Active", createdAt: "2024-12-08" },
+  { id: 100008, title: "Ring", category: "Accessory", price: 1, status: "Sold", createdAt: "2024-12-09" },
+  { id: 100009, title: "Airpod", category: "Electronic", price: 10, status: "Active", createdAt: "2024-12-10" },
+];
+
 const AdminShop: React.FC = () => {
-  // IMPORTANT: move the dataset to state, so we can append new products
   const [rows, setRows] = useState<Product[]>(initialData);
 
   const [search, setSearch] = useState("");
@@ -42,10 +33,12 @@ const AdminShop: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  // Add product modal state
+  // Modal states
   const [openAdd, setOpenAdd] = useState(false);
+  const [editTarget, setEditTarget] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  // Filtering & sorting based on local state rows
+  // ---- Filtering & sorting ----
   const filtered = useMemo(() => {
     let data = [...rows];
     const q = search.toLowerCase().trim();
@@ -56,12 +49,12 @@ const AdminShop: React.FC = () => {
 
     data.sort((a, b) => {
       switch (sortBy) {
-        case "newest":     return +new Date(b.createdAt) - +new Date(a.createdAt);
-        case "oldest":     return +new Date(a.createdAt) - +new Date(b.createdAt);
-        case "price-asc":  return a.price - b.price;
+        case "newest": return +new Date(b.createdAt) - +new Date(a.createdAt);
+        case "oldest": return +new Date(a.createdAt) - +new Date(b.createdAt);
+        case "price-asc": return a.price - b.price;
         case "price-desc": return b.price - a.price;
-        case "title-asc":  return a.title.localeCompare(b.title);
-        default:           return 0;
+        case "title-asc": return a.title.localeCompare(b.title);
+        default: return 0;
       }
     });
     return data;
@@ -72,14 +65,14 @@ const AdminShop: React.FC = () => {
 
   useEffect(() => setPage(1), [search, category, status, sortBy]);
 
-  // Export setup
+  // ---- Export ----
   const columns: ExportColumn[] = [
-    { header: "Product ID",    dataKey: "id" },
+    { header: "Product ID", dataKey: "id" },
     { header: "Product Title", dataKey: "title" },
-    { header: "Category",      dataKey: "category" },
-    { header: "Price",         dataKey: "priceFormatted" },
-    { header: "Status",        dataKey: "status" },
-    { header: "Created At",    dataKey: "createdAt" },
+    { header: "Category", dataKey: "category" },
+    { header: "Price", dataKey: "priceFormatted" },
+    { header: "Status", dataKey: "status" },
+    { header: "Created At", dataKey: "createdAt" },
   ];
 
   const rowsForExport = filtered.map((p) => ({
@@ -91,20 +84,14 @@ const AdminShop: React.FC = () => {
     createdAt: p.createdAt,
   }));
 
-  const onExportPDF = () =>
-    exportTableToPDF({ title: "Admin Shop", columns, rows: rowsForExport, orientation: "l" });
+  const onExportPDF = () => exportTableToPDF({ title: "Admin Shop", columns, rows: rowsForExport, orientation: "l" });
+  const onExportDocx = () => exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
 
-  const onExportDocx = () =>
-    exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
-
-  // ---- Add Product
+  // ---- Add ----
   const handleAddProduct = (data: AddProductPayload) => {
-    // Simple new ID strategy: last id + 1 (or timestamp)
     const nextId = rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 100000;
     const today = new Date();
-    const createdAt = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-      today.getDate()
-    ).padStart(2, "0")}`;
+    const createdAt = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     const newRow: Product = {
       id: nextId,
@@ -115,8 +102,21 @@ const AdminShop: React.FC = () => {
       createdAt,
     };
 
-    setRows((prev) => [newRow, ...prev]); // prepend for visibility
+    setRows((prev) => [newRow, ...prev]);
     setOpenAdd(false);
+  };
+
+  // ---- Edit ----
+  const handleEditProduct = (updated: Product) => {
+    setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    setEditTarget(null);
+  };
+
+  // ---- Delete ----
+  const handleDeleteProduct = () => {
+    if (!deleteTarget) return;
+    setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    setDeleteTarget(null);
   };
 
   return (
@@ -126,6 +126,7 @@ const AdminShop: React.FC = () => {
 
       {/* Card */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+
         {/* Toolbar */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100">All Products</h5>
@@ -178,10 +179,10 @@ const AdminShop: React.FC = () => {
               <option value="title-asc">Title A → Z</option>
             </select>
 
-            {/* Export (menu-style) */}
+            {/* Export */}
             <ExportButtons onPDF={onExportPDF} onDocx={onExportDocx} variant="brand" size="md" />
 
-            {/* Add Product button (brand style to match mock) */}
+            {/* Add Product */}
             <button
               type="button"
               onClick={() => setOpenAdd(true)}
@@ -239,14 +240,19 @@ const AdminShop: React.FC = () => {
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center justify-center gap-2">
+                        {/* Edit */}
                         <button
+                          onClick={() => setEditTarget(p)}
                           className="w-7 h-7 grid place-items-center rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/40"
                           aria-label="Edit"
                           title="Edit"
                         >
                           <i className="bi bi-pencil-square" />
                         </button>
+
+                        {/* Delete */}
                         <button
+                          onClick={() => setDeleteTarget(p)}
                           className="w-7 h-7 grid place-items-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
                           aria-label="Delete"
                           title="Delete"
@@ -258,6 +264,14 @@ const AdminShop: React.FC = () => {
                   </tr>
                 );
               })}
+
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-400">
+                    No products found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -265,7 +279,8 @@ const AdminShop: React.FC = () => {
         {/* Pagination */}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-500">
-            Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> –{" "}
+            Showing{" "}
+            <span className="font-medium">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> –{" "}
             <span className="font-medium">{Math.min(page * pageSize, filtered.length)}</span> of{" "}
             <span className="font-medium">{filtered.length}</span>
           </div>
@@ -291,11 +306,27 @@ const AdminShop: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Add Product Modal */}
       <AddProductModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}
         onSubmit={handleAddProduct}
+      />
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        open={!!editTarget}
+        product={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSubmit={handleEditProduct}
+      />
+
+      {/* Delete Product Modal */}
+      <DeleteProductModal
+        open={!!deleteTarget}
+        product={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteProduct}
       />
     </>
   );

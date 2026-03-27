@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
 type Category = "Electronic" | "Clothing" | "Accessory";
 type Product = {
   id: number;
@@ -33,11 +34,14 @@ const UsersProduct: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [reportedOnly, setReportedOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>(initialData);
 
   const pageSize = 10;
 
   const filtered = useMemo(() => {
-    let rows = [...initialData];
+    let rows = [...products];
     const q = search.toLowerCase().trim();
 
     if (q) {
@@ -66,7 +70,7 @@ const UsersProduct: React.FC = () => {
     });
 
     return rows;
-  }, [search, category, sortBy, reportedOnly]);
+  }, [products, search, category, sortBy, reportedOnly]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -79,6 +83,17 @@ const UsersProduct: React.FC = () => {
     "border border-[#FF004F] text-[#FF004F] bg-[#FFC5C5] " +
     "hover:brightness-95 active:brightness-90 " +
     "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
+  //handle confirm delete
+  const handleConfirmDelete = () => {
+    if (!selectedProduct) return;
+
+    setProducts((prev) =>
+      prev.filter((p) => p.id !== selectedProduct.id)
+    );
+
+    setIsDeleteOpen(false);
+    setSelectedProduct(null);
+  };
 
   // --- Export setup ---
   const columns: ExportColumn[] = [
@@ -214,7 +229,10 @@ const UsersProduct: React.FC = () => {
                       <span className={p.reported ? "text-red-600 font-medium" : "text-slate-500"}>{p.reported ? "Yes" : "No"}</span>
                     </td>
                     <td className="py-3 px-2 text-right">
-                      <button className={removeBtn} onClick={() => alert(`Remove ${p.id}`)}>
+                      <button className={removeBtn} onClick={() => {
+                        setSelectedProduct(p);
+                        setIsDeleteOpen(true);
+                      }}>
                         Remove
                       </button>
                     </td>
@@ -253,6 +271,15 @@ const UsersProduct: React.FC = () => {
           </div>
         </div>
       </div>
+      <DeleteProductModal
+        open={isDeleteOpen}
+        product={selectedProduct}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setSelectedProduct(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 };
