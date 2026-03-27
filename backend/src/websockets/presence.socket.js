@@ -74,6 +74,16 @@ function getCachedLastSeenAt(userId) {
   return cached.lastSeenAt;
 }
 
+function hasCachedEntry(userId) {
+  const cached = userLastSeenCache.get(userId);
+  if (!cached) return false;
+  if (Date.now() - cached.updatedAt > PRESENCE_CACHE_TTL_MS) {
+    userLastSeenCache.delete(userId);
+    return false;
+  }
+  return true;
+}
+
 function setCachedLastSeenAt(userId, lastSeenAt) {
   const normalized = toUserId(userId);
   if (!normalized) {
@@ -122,7 +132,7 @@ export async function getPresenceForUserIds(userIds) {
 
   for (const id of normalizedIds) {
     const cachedLastSeenAt = getCachedLastSeenAt(id);
-    if (cachedLastSeenAt !== null || isUserOnline(id)) {
+    if (hasCachedEntry(id) || isUserOnline(id)) {
       presenceMap.set(id, {
         user_id: id,
         is_online: isUserOnline(id),
