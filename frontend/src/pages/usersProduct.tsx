@@ -45,6 +45,8 @@ const UsersProduct: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const pageSize = 10;
 
@@ -62,6 +64,7 @@ const UsersProduct: React.FC = () => {
         setLoadError("");
 
         const response = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
+
         if (!isMounted) return;
 
         const mappedProducts: Product[] = (Array.isArray(response) ? response : []).map((item) => ({
@@ -141,15 +144,25 @@ const UsersProduct: React.FC = () => {
     "hover:brightness-95 active:brightness-90 " +
     "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
   //handle confirm delete
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!selectedProduct) return;
 
-    setProducts((prev) =>
-      prev.filter((p) => p.id !== selectedProduct.id)
-    );
+    try {
+      setIsDeleting(true);
+      setDeleteError("");
 
-    setIsDeleteOpen(false);
-    setSelectedProduct(null);
+      await apiRequest<void>(`/api/products/${selectedProduct.id}`, {
+        method: "DELETE",
+      });
+
+      setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id));
+      setIsDeleteOpen(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // --- Export setup ---
@@ -256,6 +269,12 @@ const UsersProduct: React.FC = () => {
           </div>
         )}
 
+        {!!deleteError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {deleteError}
+          </div>
+        )}
+
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -345,7 +364,9 @@ const UsersProduct: React.FC = () => {
       <DeleteProductModal
         open={isDeleteOpen}
         product={selectedProduct}
+        isLoading={isDeleting}
         onClose={() => {
+          if (isDeleting) return;
           setIsDeleteOpen(false);
           setSelectedProduct(null);
         }}

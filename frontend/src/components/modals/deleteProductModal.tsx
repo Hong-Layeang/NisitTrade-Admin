@@ -3,16 +3,17 @@ import React from "react";
 // Generic — works with AdminProduct, UserProduct, or any object with id + title
 interface DeleteProductModalProps {
   open: boolean;
-    product?: { id: number; title: string } | null;
-    user?: { id: number; name: string } | null;
+  product?: { id: number; title: string } | null;
+  user?: { id: number; name: string } | null;
+  isLoading?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, product, onClose, onConfirm }) => {
-    if (!open || (!product && !user)) return null;
-    const title = product ? product.title : user ? user.name : "";
-    const typeLabel = product ? "Product" : "User";
+const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, product, isLoading = false, onClose, onConfirm }) => {
+  if (!open || (!product && !user)) return null;
+  const title = product ? product.title : user ? user.name : "";
+  const typeLabel = product ? "Product" : "User";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -38,6 +39,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, pro
           <button
             type="button"
             onClick={onClose}
+            disabled={isLoading}
             className="flex-1 px-4 py-2 rounded-md border border-gray-200 dark:border-gray-700 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-gray-800"
           >
             Cancel
@@ -45,9 +47,10 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, pro
           <button
             type="button"
             onClick={onConfirm}
-            className="flex-1 px-4 py-2 rounded-md bg-red-600 text-sm font-medium text-white hover:bg-red-700"
+            disabled={isLoading}
+            className="flex-1 px-4 py-2 rounded-md bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Delete
+            {isLoading ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
