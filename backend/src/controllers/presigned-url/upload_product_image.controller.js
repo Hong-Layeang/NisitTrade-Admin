@@ -20,8 +20,19 @@ export default async function uploadProductImageController(req, res) {
       });
     }
 
-    // Upload to S3
-    const s3Key = await uploadProductImageToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
+    let s3Key = null;
+
+    // When middleware uses multer-s3, file is already uploaded and key is available.
+    if (req.file.key) {
+      s3Key = req.file.key;
+    } else if (req.file.buffer) {
+      // Fallback for memory storage middleware.
+      s3Key = await uploadProductImageToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
+    } else {
+      return res.status(400).json({
+        message: 'Invalid upload payload: missing uploaded key or file buffer'
+      });
+    }
 
     res.json({
       s3Key,

@@ -36,6 +36,12 @@ type ApiProduct = {
   }>;
 };
 
+type PresignedUrlResponse = {
+  s3Key?: string;
+  presignedUrl?: string;
+  expiresIn?: number;
+};
+
 const FALLBACK_CATEGORIES: Category[] = ["Electronic", "Clothing", "Accessory"];
 
 function parseNumber(value: unknown, fallback = 0): number {
@@ -49,6 +55,22 @@ function mapBackendStatusToUi(status: string | undefined): Status {
 
 function mapUiStatusToBackend(status: Status): "sold" | "available" {
   return status === "Sold" ? "sold" : "available";
+}
+
+async function toRenderableImageUrl(imageUrl?: string): Promise<string | undefined> {
+  if (!imageUrl) return undefined;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+
+  try {
+    const response = await apiRequest<PresignedUrlResponse>("/api/presigned-url", {
+      method: "POST",
+      body: JSON.stringify({ s3Key: imageUrl }),
+    });
+
+    return response?.presignedUrl || imageUrl;
+  } catch {
+    return imageUrl;
+  }
 }
 
 const AdminShop: React.FC = () => {
@@ -201,6 +223,19 @@ const AdminShop: React.FC = () => {
         }),
       });
 
+      const createdImages = Array.isArray(created?.ProductImages) ? created.ProductImages : [];
+      const sourceImages =
+        createdImages.length > 0
+          ? createdImages
+          : imageUrls.map((key, index) => ({ id: index + 1, image_url: key }));
+
+      const optimisticImages = await Promise.all(
+        sourceImages.map(async (img, index) => ({
+          id: img.id ?? index + 1,
+          image_url: await toRenderableImageUrl(img.image_url),
+        }))
+      );
+
       const newRow: Product = {
         id: parseNumber(created?.id),
         title: created?.title || data.title,
@@ -208,6 +243,7 @@ const AdminShop: React.FC = () => {
         price: parseNumber(created?.price, data.price),
         status: mapBackendStatusToUi(created?.status),
         createdAt: created?.created_at || created?.createdAt || new Date().toISOString(),
+        ProductImages: optimisticImages,
       };
 
       setRows((prev) => [newRow, ...prev]);
@@ -237,6 +273,17 @@ const AdminShop: React.FC = () => {
         }),
       });
 
+      const savedImages = Array.isArray(saved?.ProductImages)
+        ? saved.ProductImages
+        : updated.ProductImages || [];
+
+      const nextImages = await Promise.all(
+        savedImages.map(async (img, index) => ({
+          id: img.id ?? index + 1,
+          image_url: await toRenderableImageUrl(img.image_url),
+        }))
+      );
+
       const nextRow: Product = {
         id: parseNumber(saved?.id, updated.id),
         title: saved?.title || updated.title,
@@ -244,6 +291,7 @@ const AdminShop: React.FC = () => {
         price: parseNumber(saved?.price, updated.price),
         status: mapBackendStatusToUi(saved?.status),
         createdAt: saved?.created_at || saved?.createdAt || updated.createdAt,
+        ProductImages: nextImages,
       };
 
       setRows((prev) => prev.map((r) => (r.id === updated.id ? nextRow : r)));
@@ -389,14 +437,16 @@ const AdminShop: React.FC = () => {
                 const pill = isActive
                   ? "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-300"
                   : "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-300";
+                const primaryImageUrl = p.ProductImages?.[0]?.image_url || "";
+                const hasRenderableImage = /^https?:\/\//i.test(primaryImageUrl);
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
                     <td className="py-3 px-2">{p.id}</td>
                     <td className="py-3 px-2">
-                      {p.ProductImages && p.ProductImages.length > 0 ? (
+                      {hasRenderableImage ? (
                         <img
-                          src={p.ProductImages[0].image_url}
+                          src={primaryImageUrl}
                           alt={p.title}
                           className="h-16 w-16 object-cover rounded-md border border-gray-200 dark:border-gray-700"
                         />
