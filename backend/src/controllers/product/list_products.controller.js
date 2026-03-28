@@ -29,7 +29,7 @@ export default async function listProductsController(req, res) {
       }
       where.status = status;
     } else {
-      where.status = { [Op.ne]: 'hidden' };
+      where.status = { [Op.notIn]: ['hidden', 'sold'] };
     }
 
     // Search in title and description

@@ -4,7 +4,7 @@ import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 import { getUserBlockStatuses } from '../../utils/user-blocks.js';
 import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
 
-const { User, University, UserFollow } = models;
+const { User, University, UserFollow, Rating } = models;
 
 export default async function getAllUsersController(req, res) {
   try {
@@ -41,7 +41,7 @@ export default async function getAllUsersController(req, res) {
 
     const userIds = rows.map((user) => user.id);
 
-    const [followRows, followerCountsRaw, followingCountsRaw, blockStatuses, presenceByUserId] = await Promise.all([
+    const [followRows, followerCountsRaw, followingCountsRaw, ratingSummariesRaw, blockStatuses, presenceByUserId] = await Promise.all([
       userIds.length
         ? UserFollow.findAll({
             where: {
@@ -75,6 +75,18 @@ export default async function getAllUsersController(req, res) {
           })
         : Promise.resolve([]),
       userIds.length
+        ? Rating.findAll({
+            where: { seller_id: { [Op.in]: userIds } },
+            attributes: [
+              'seller_id',
+              [fn('COUNT', col('id')), 'rating_count'],
+              [fn('AVG', col('rating')), 'avg_rating'],
+            ],
+            group: ['seller_id'],
+            raw: true,
+          })
+        : Promise.resolve([]),
+      userIds.length
         ? getUserBlockStatuses(requesterId, userIds)
         : Promise.resolve(new Map()),
       userIds.length
@@ -95,6 +107,16 @@ export default async function getAllUsersController(req, res) {
         Number.parseInt(String(row.count), 10) || 0,
       ]),
     );
+    const ratingSummaryByUserId = new Map(
+      ratingSummariesRaw.map((row) => {
+        const ratingCount = Number.parseInt(String(row.rating_count), 10) || 0;
+        const avgRatingRaw = Number.parseFloat(String(row.avg_rating)) || 0;
+        const avgRating = ratingCount > 0
+          ? Math.round(avgRatingRaw * 10) / 10
+          : 0;
+        return [Number(row.seller_id), { ratingCount, avgRating }];
+      }),
+    );
 
     const users = await Promise.all(rows.map(async (user) => {
       const presence = presenceByUserId.get(Number(user.id)) ?? {
@@ -114,6 +136,8 @@ export default async function getAllUsersController(req, res) {
         University: user.University,
         follower_count: followerCountByUserId.get(user.id) ?? 0,
         following_count: followingCountByUserId.get(user.id) ?? 0,
+        rating_count: ratingSummaryByUserId.get(user.id)?.ratingCount ?? 0,
+        avg_rating: ratingSummaryByUserId.get(user.id)?.avgRating ?? 0,
         is_following: user.id === requesterId ? false : followingIds.has(user.id),
         is_blocked_by_me: blockStatuses.get(Number(user.id))?.isBlockedByMe ?? false,
         has_blocked_me: blockStatuses.get(Number(user.id))?.hasBlockedMe ?? false,

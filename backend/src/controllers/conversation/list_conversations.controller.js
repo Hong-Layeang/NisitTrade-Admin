@@ -73,6 +73,17 @@ export default async function listConversationsController(req, res) {
             attributes: ['user_id'],
             where: { user_id: userId },
             required: false,
+          },
+          {
+            model: Product,
+            as: 'AttachedProduct',
+            attributes: ['id', 'title', 'price', 'status', 'user_id', 'category_id', 'created_at', 'updated_at'],
+            include: [
+              {
+                model: ProductImage,
+                attributes: ['id', 'image_url', 'product_id', 'created_at', 'updated_at']
+              }
+            ]
           }
         ],
         order: [['sent_at', 'DESC']]

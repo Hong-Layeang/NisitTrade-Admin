@@ -1,12 +1,14 @@
 ﻿import models from '../../models/index.js';
+import { fn, col } from 'sequelize';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
 
-const { User, University, UserFollow } = models;
+const { User, University, UserFollow, Rating } = models;
 
 export default async function getUserController(req, res) {
   try {
     const { id } = req.params;
+    const targetUserId = Number(id);
     const requesterId = req.user?.id;
     const requesterRole = req.user?.role;
 
@@ -14,10 +16,14 @@ export default async function getUserController(req, res) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const isOwner = String(requesterId) === String(id);
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const isOwner = requesterId === targetUserId;
     const isAdmin = requesterRole === 'admin';
 
-    const user = await User.findByPk(id, {
+    const user = await User.findByPk(targetUserId, {
       attributes: ['id', 'full_name', 'email', 'profile_image', 'cover_image', 'bio', 'major', 'provider', 'role', 'university_id', 'created_at', 'updated_at', 'last_seen_at'],
       include: [
         {
@@ -32,13 +38,32 @@ export default async function getUserController(req, res) {
     }
 
     // Count followers and following
-    const [followerCount, followingCount, isFollowingTarget] = await Promise.all([
-      UserFollow.count({ where: { following_id: id } }),
-      UserFollow.count({ where: { follower_id: id } }),
+    const [followerCount, followingCount, isFollowingTarget, ratingSummaryRaw] = await Promise.all([
+      UserFollow.count({ where: { following_id: targetUserId } }),
+      UserFollow.count({ where: { follower_id: targetUserId } }),
       requesterId && !isOwner
-        ? UserFollow.count({ where: { follower_id: requesterId, following_id: id } })
+        ? UserFollow.count({ where: { follower_id: requesterId, following_id: targetUserId } })
         : Promise.resolve(0),
+      Rating.findOne({
+        where: { seller_id: targetUserId },
+        attributes: [
+          [fn('COUNT', col('id')), 'rating_count'],
+          [fn('AVG', col('rating')), 'avg_rating'],
+        ],
+        raw: true,
+      }),
     ]);
+
+    const ratingCount = Number.parseInt(
+      String(ratingSummaryRaw?.rating_count ?? 0),
+      10,
+    ) || 0;
+    const avgRatingRaw = Number.parseFloat(
+      String(ratingSummaryRaw?.avg_rating ?? 0),
+    ) || 0;
+    const avgRating = ratingCount > 0
+      ? Math.round(avgRatingRaw * 10) / 10
+      : 0;
 
     const [presignedProfileImage, presignedCoverImage, presenceByUserId] = await Promise.all([
       presignIfS3Url(user.profile_image),
@@ -65,6 +90,8 @@ export default async function getUserController(req, res) {
       University: user.University,
       follower_count: followerCount,
       following_count: followingCount,
+      rating_count: ratingCount,
+      avg_rating: avgRating,
       is_following: Boolean(isFollowingTarget),
       email_domain: user.email ? (user.email.split('@')[1] ?? null) : null,
       is_online: presence.is_online,

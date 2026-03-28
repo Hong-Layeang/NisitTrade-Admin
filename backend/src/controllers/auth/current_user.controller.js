@@ -1,7 +1,8 @@
 import models from '../../models/index.js';
+import { fn, col } from 'sequelize';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 
-const { User, University, UserFollow } = models;
+const { User, University, UserFollow, Rating } = models;
 
 export default async function currentUserController(req, res) {
   try {
@@ -24,10 +25,29 @@ export default async function currentUserController(req, res) {
       return res.status(401).json({ msg: 'Unauthorized' });
     }
 
-    const [followerCount, followingCount] = await Promise.all([
+    const [followerCount, followingCount, ratingSummaryRaw] = await Promise.all([
       UserFollow.count({ where: { following_id: userId } }),
       UserFollow.count({ where: { follower_id: userId } }),
+      Rating.findOne({
+        where: { seller_id: userId },
+        attributes: [
+          [fn('COUNT', col('id')), 'rating_count'],
+          [fn('AVG', col('rating')), 'avg_rating'],
+        ],
+        raw: true,
+      }),
     ]);
+
+    const ratingCount = Number.parseInt(
+      String(ratingSummaryRaw?.rating_count ?? 0),
+      10,
+    ) || 0;
+    const avgRatingRaw = Number.parseFloat(
+      String(ratingSummaryRaw?.avg_rating ?? 0),
+    ) || 0;
+    const avgRating = ratingCount > 0
+      ? Math.round(avgRatingRaw * 10) / 10
+      : 0;
 
     const userData = user.toJSON();
     const [presignedProfileImage, presignedCoverImage] = await Promise.all([
@@ -40,6 +60,8 @@ export default async function currentUserController(req, res) {
       cover_image: presignedCoverImage,
       follower_count: followerCount,
       following_count: followingCount,
+      rating_count: ratingCount,
+      avg_rating: avgRating,
       is_following: false,
     });
   } catch (error) {
