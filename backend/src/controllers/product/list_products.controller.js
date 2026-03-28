@@ -10,6 +10,7 @@ export default async function listProductsController(req, res) {
       category_id, 
       status, 
       search, 
+      owner_role,
       limit = 50, 
       offset = 0 
     } = req.query;
@@ -40,13 +41,20 @@ export default async function listProductsController(req, res) {
       ];
     }
 
+    const userInclude = {
+      model: User,
+      attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
+    };
+
+    if (owner_role) {
+      userInclude.where = { role: owner_role };
+      userInclude.required = true;
+    }
+
     const products = await Product.findAll({
       where,
       include: [
-        {
-          model: User,
-          attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
-        },
+        userInclude,
         {
           model: Category,
           attributes: ['id', 'name', 'created_at', 'updated_at']

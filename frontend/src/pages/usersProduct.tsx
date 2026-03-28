@@ -2,7 +2,9 @@ import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
 import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
-type Category = "Electronic" | "Clothing" | "Accessory";
+import { apiRequest } from "../lib/api.ts";
+
+type Category = string;
 type Product = {
   id: number;
   title: string;
@@ -13,18 +15,22 @@ type Product = {
   createdAt: string;
 };
 
-const initialData: Product[] = [
-  { id: 100000, title: "shirt",   userId: 10000, category: "Clothing",  price: 60,  reported: true,  createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",   userId: 10001, category: "Electronic", price: 100, createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",  userId: 10002, category: "Electronic", price: 250, createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",userId: 10003, category: "Electronic", price: 30,  createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",   userId: 10004, category: "Clothing",  price: 35.5,createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",   userId: 10005, category: "Clothing",  price: 10,  createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",  userId: 10006, category: "Clothing",  price: 7.75,createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",  userId: 10007, category: "Clothing",  price: 7.75,createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",    userId: 10008, category: "Accessory", price: 1,   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",  userId: 10009, category: "Electronic", price: 10,  createdAt: "2024-12-10" },
-];
+type ApiProduct = {
+  id?: number | string;
+  title?: string;
+  user_id?: number | string;
+  price?: number | string;
+  created_at?: string;
+  createdAt?: string;
+  Category?: {
+    name?: string;
+  };
+  User?: {
+    id?: number | string;
+    role?: string;
+  };
+  Reports?: unknown[];
+};
 
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
 
@@ -36,9 +42,60 @@ const UsersProduct: React.FC = () => {
   const [page, setPage] = useState(1);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [products, setProducts] = useState<Product[]>(initialData);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const pageSize = 10;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const parseNumber = (value: unknown, fallback = 0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const response = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
+        if (!isMounted) return;
+
+        const mappedProducts: Product[] = (Array.isArray(response) ? response : []).map((item) => ({
+          id: parseNumber(item.id),
+          title: item.title || "Untitled",
+          userId: parseNumber(item.user_id ?? item.User?.id),
+          category: item.Category?.name || "Unknown",
+          price: parseNumber(item.price),
+          reported: Array.isArray(item.Reports) ? item.Reports.length > 0 : false,
+          createdAt: item.created_at || item.createdAt || "",
+        }));
+
+        setProducts(mappedProducts);
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load user products");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const categoryOptions = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
+    [products]
+  );
 
   const filtered = useMemo(() => {
     let rows = [...products];
@@ -150,9 +207,11 @@ const UsersProduct: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categoryOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
 
             {/* Sort */}
@@ -184,6 +243,18 @@ const UsersProduct: React.FC = () => {
             <ExportButtons onPDF={onExportPDF} onDocx={onExportDocx} variant="brand" size="md" />
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
+            Loading user products...
+          </div>
+        )}
+
+        {!!loadError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
 
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
