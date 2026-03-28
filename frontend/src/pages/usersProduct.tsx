@@ -32,6 +32,17 @@ type ApiProduct = {
   Reports?: unknown[];
 };
 
+type ApiReportItem = {
+  id?: number | string;
+  status?: "open" | "reviewing" | "closed" | string;
+  reportable_id?: number | string;
+};
+
+type ApiReportListResponse = {
+  total?: number;
+  items?: ApiReportItem[];
+};
+
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
 
 const UsersProduct: React.FC = () => {
@@ -63,17 +74,33 @@ const UsersProduct: React.FC = () => {
         setIsLoading(true);
         setLoadError("");
 
-        const response = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
+        const productsResponse = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
+
+        // Reports endpoint is admin-only; if it fails, keep rendering products with fallback flags.
+        let reportItems: ApiReportItem[] = [];
+        try {
+          const reportsResponse = await apiRequest<ApiReportListResponse>("/api/reports?limit=500");
+          reportItems = Array.isArray(reportsResponse?.items) ? reportsResponse.items : [];
+        } catch {
+          reportItems = [];
+        }
+
+        const reportedProductIds = new Set(
+          reportItems
+            .filter((item) => item.status !== "closed")
+            .map((item) => parseNumber(item.reportable_id))
+            .filter((id) => id > 0)
+        );
 
         if (!isMounted) return;
 
-        const mappedProducts: Product[] = (Array.isArray(response) ? response : []).map((item) => ({
+        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : []).map((item) => ({
           id: parseNumber(item.id),
           title: item.title || "Untitled",
           userId: parseNumber(item.user_id ?? item.User?.id),
           category: item.Category?.name || "Unknown",
           price: parseNumber(item.price),
-          reported: Array.isArray(item.Reports) ? item.Reports.length > 0 : false,
+          reported: reportedProductIds.has(parseNumber(item.id)),
           createdAt: item.created_at || item.createdAt || "",
         }));
 
