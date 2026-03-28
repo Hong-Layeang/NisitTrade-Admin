@@ -14,6 +14,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, pro
   if (!open || (!product && !user)) return null;
   const title = product ? product.title : user ? user.name : "";
   const typeLabel = product ? "Product" : "User";
+  const actionLabel = product ? "Delete" : "Remove";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -26,11 +27,11 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, pro
           </div>
         </div>
 
-              <h3 className="text-center text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
-                  Delete {typeLabel}
-              </h3>
+                <h3 className="text-center text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                  {actionLabel} {typeLabel}
+                </h3>
               <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6">
-                  Are you sure you want to delete{" "}
+                  Are you sure you want to {actionLabel.toLowerCase()}{" "}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">"{title}"</span>?
                   <br />This action cannot be undone.
               </p>
@@ -50,7 +51,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ open, user, pro
             disabled={isLoading}
             className="flex-1 px-4 py-2 rounded-md bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isLoading ? "Deleting..." : "Delete"}
+            {isLoading ? `${actionLabel}...` : actionLabel}
           </button>
         </div>
       </div>
