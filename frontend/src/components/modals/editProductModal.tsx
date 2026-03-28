@@ -3,6 +3,12 @@ import React, { useState, useEffect } from "react";
 type Category = string;
 type Status = "Active" | "Sold";
 
+export type ProductImage = {
+    id?: number;
+    image_url?: string;
+    product_id?: number;
+};
+
 export type Product = {
     id: number;
     title: string;
@@ -10,6 +16,7 @@ export type Product = {
     price: number;
     status: Status;
     createdAt: string;
+    ProductImages?: ProductImage[];
 };
 
 interface EditProductModalProps {

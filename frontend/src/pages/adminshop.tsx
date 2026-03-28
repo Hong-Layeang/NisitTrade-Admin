@@ -30,6 +30,10 @@ type ApiProduct = {
     id?: number | string;
     name?: string;
   };
+  ProductImages?: Array<{
+    id?: number;
+    image_url?: string;
+  }>;
 };
 
 const FALLBACK_CATEGORIES: Category[] = ["Electronic", "Clothing", "Accessory"];
@@ -103,6 +107,7 @@ const AdminShop: React.FC = () => {
             price: parseNumber(item.price),
             status: mapBackendStatusToUi(item.status),
             createdAt: item.created_at || item.createdAt || "",
+            ProductImages: item.ProductImages || [],
           }));
 
         setCategoryIdByName(categoryMap);
@@ -357,7 +362,8 @@ const AdminShop: React.FC = () => {
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <colgroup>
-              <col style={{ width: "140px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "80px" }} />
               <col style={{ width: "360px" }} />
               <col style={{ width: "160px" }} />
               <col style={{ width: "110px" }} />
@@ -368,6 +374,7 @@ const AdminShop: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
                 <th className="py-3 px-2 text-slate-500 font-medium">Product ID</th>
+                <th className="py-3 px-2 text-slate-500 font-medium">Image</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Product Title</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Category</th>
                 <th className="py-3 px-2 text-slate-500 font-medium text-right">Price</th>
@@ -386,6 +393,19 @@ const AdminShop: React.FC = () => {
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
                     <td className="py-3 px-2">{p.id}</td>
+                    <td className="py-3 px-2">
+                      {p.ProductImages && p.ProductImages.length > 0 ? (
+                        <img
+                          src={p.ProductImages[0].image_url}
+                          alt={p.title}
+                          className="h-16 w-16 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-md border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                          <i className="bi bi-image text-gray-400" />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-2">{p.title}</td>
                     <td className="py-3 px-2 text-slate-500">{p.category}</td>
                     <td className="py-3 px-2 text-right">

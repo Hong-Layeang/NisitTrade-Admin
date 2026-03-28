@@ -5,6 +5,12 @@ import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
 import { apiRequest } from "../lib/api.ts";
 
 type Category = string;
+
+type ProductImage = {
+  id?: number;
+  image_url?: string;
+};
+
 type Product = {
   id: number;
   title: string;
@@ -13,6 +19,7 @@ type Product = {
   price: number;
   reported?: boolean;
   createdAt: string;
+  ProductImages?: ProductImage[];
 };
 
 type ApiProduct = {
@@ -30,6 +37,10 @@ type ApiProduct = {
     role?: string;
   };
   Reports?: unknown[];
+  ProductImages?: Array<{
+    id?: number;
+    image_url?: string;
+  }>;
 };
 
 type ApiReportItem = {
@@ -118,6 +129,7 @@ const UsersProduct: React.FC = () => {
             price: parseNumber(item.price),
             reported: reportedProductIds.has(parseNumber(item.id)),
             createdAt: item.created_at || item.createdAt || "",
+            ProductImages: item.ProductImages || [],
           }));
 
         setProducts(mappedProducts);
@@ -322,18 +334,19 @@ const UsersProduct: React.FC = () => {
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <colgroup>
-              <col style={{ width: "140px" }} />
-              <col style={{ width: "360px" }} />
-              <col style={{ width: "130px" }} />
-              <col style={{ width: "160px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "80px" }} />
+              <col style={{ width: "280px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "120px" }} />
+              <col style={{ width: "100px" }} />
               <col style={{ width: "110px" }} />
-              <col style={{ width: "120px" }} />
-              <col style={{ width: "120px" }} />
             </colgroup>
 
             <thead>
               <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
                 <th className="py-3 px-2 text-slate-500 font-medium">Product ID</th>
+                <th className="py-3 px-2 text-slate-500 font-medium">Image</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Product Title</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">User ID</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Category</th>
@@ -350,6 +363,19 @@ const UsersProduct: React.FC = () => {
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
                     <td className={`py-3 px-2 tabular-nums ${redTxt}`}>{p.id}</td>
+                    <td className="py-3 px-2">
+                      {p.ProductImages && p.ProductImages.length > 0 ? (
+                        <img
+                          src={p.ProductImages[0].image_url}
+                          alt={p.title}
+                          className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                          <i className="bi bi-image text-gray-400 text-xs" />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-2">
                       <span className={`truncate block ${redTxt}`}>{p.title}</span>
                     </td>
