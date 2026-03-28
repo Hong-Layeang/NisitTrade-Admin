@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-type Category = "Electronic" | "Clothing" | "Accessory";
+type Category = string;
 type Status = "Active" | "Sold";
 
 export type Product = {
@@ -15,13 +15,14 @@ export type Product = {
 interface EditProductModalProps {
     open: boolean;
     product: Product | null;
+    categories: Category[];
     onClose: () => void;
     onSubmit: (updated: Product) => void;
 }
 
-const EditProductModal: React.FC<EditProductModalProps> = ({ open, product, onClose, onSubmit }) => {
+const EditProductModal: React.FC<EditProductModalProps> = ({ open, product, categories, onClose, onSubmit }) => {
     const [title, setTitle] = useState("");
-    const [category, setCategory] = useState<Category>("Electronic");
+    const [category, setCategory] = useState<Category>(categories[0] || "");
     const [price, setPrice] = useState<number>(0);
     const [status, setStatus] = useState<Status>("Active");
 
@@ -34,6 +35,12 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ open, product, onCl
             setStatus(product.status);
         }
     }, [product]);
+
+    useEffect(() => {
+        if (!product && categories.length > 0) {
+            setCategory(categories[0]);
+        }
+    }, [categories, product]);
 
     if (!open || !product) return null;
 
@@ -92,9 +99,9 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ open, product, onCl
                             onChange={(e) => setCategory(e.target.value as Category)}
                             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50"
                         >
-                            <option value="Electronic">Electronic</option>
-                            <option value="Clothing">Clothing</option>
-                            <option value="Accessory">Accessory</option>
+                            {categories.map((item) => (
+                                <option key={item} value={item}>{item}</option>
+                            ))}
                         </select>
                     </div>
 

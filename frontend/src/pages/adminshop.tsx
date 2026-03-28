@@ -4,11 +4,17 @@ import { ExportButtons } from "../components/ui/exportButton.tsx";
 import AddProductModal, { AddProductPayload } from "../components/modals/addProductModal.tsx";
 import EditProductModal, { Product } from "../components/modals/editProductModal.tsx";
 import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
+import { apiRequest } from "../lib/api.ts";
 
 // ---- Types ----
-type Category = "Electronic" | "Clothing" | "Accessory";
+type Category = string;
 type Status = "Active" | "Sold";
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc";
+
+type ApiCategory = {
+  id?: number | string;
+  name?: string;
+};
 
 const initialData: Product[] = [
   { id: 100000, title: "Mouse", category: "Electronic", price: 5, status: "Active", createdAt: "2024-12-01" },
@@ -25,6 +31,7 @@ const initialData: Product[] = [
 
 const AdminShop: React.FC = () => {
   const [rows, setRows] = useState<Product[]>(initialData);
+  const [categories, setCategories] = useState<Category[]>(["Electronic", "Clothing", "Accessory"]);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
@@ -37,6 +44,33 @@ const AdminShop: React.FC = () => {
   const [openAdd, setOpenAdd] = useState(false);
   const [editTarget, setEditTarget] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const response = await apiRequest<ApiCategory[]>("/api/categories");
+        if (!isMounted) return;
+
+        const names = (Array.isArray(response) ? response : [])
+          .map((item) => (item?.name || "").trim())
+          .filter(Boolean);
+
+        if (names.length > 0) {
+          setCategories(names);
+        }
+      } catch {
+        // Keep fallback categories if API is unavailable.
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ---- Filtering & sorting ----
   const filtered = useMemo(() => {
@@ -150,9 +184,9 @@ const AdminShop: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categories.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
             </select>
 
             {/* Status */}
@@ -310,6 +344,7 @@ const AdminShop: React.FC = () => {
       <AddProductModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}
+        categories={categories}
         onSubmit={handleAddProduct}
       />
 
@@ -317,6 +352,7 @@ const AdminShop: React.FC = () => {
       <EditProductModal
         open={!!editTarget}
         product={editTarget}
+        categories={categories}
         onClose={() => setEditTarget(null)}
         onSubmit={handleEditProduct}
       />

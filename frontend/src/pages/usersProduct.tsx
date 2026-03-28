@@ -43,6 +43,11 @@ type ApiReportListResponse = {
   items?: ApiReportItem[];
 };
 
+type ApiCategory = {
+  id?: number | string;
+  name?: string;
+};
+
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
 
 const UsersProduct: React.FC = () => {
@@ -54,6 +59,7 @@ const UsersProduct: React.FC = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -74,6 +80,7 @@ const UsersProduct: React.FC = () => {
         setIsLoading(true);
         setLoadError("");
 
+        const categoriesResponse = await apiRequest<ApiCategory[]>("/api/categories");
         const productsResponse = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
 
         // Reports endpoint is admin-only; if it fails, keep rendering products with fallback flags.
@@ -93,6 +100,13 @@ const UsersProduct: React.FC = () => {
         );
 
         if (!isMounted) return;
+
+        const categoryNames = (Array.isArray(categoriesResponse) ? categoriesResponse : [])
+          .map((item) => (item?.name || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+
+        setCategories(categoryNames);
 
         const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : []).map((item) => ({
           id: parseNumber(item.id),
@@ -123,8 +137,8 @@ const UsersProduct: React.FC = () => {
   }, []);
 
   const categoryOptions = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
-    [products]
+    () => [...new Set([...categories, ...products.map((p) => p.category).filter(Boolean)])].sort(),
+    [categories, products]
   );
 
   const filtered = useMemo(() => {

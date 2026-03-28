@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type Category = "Electronic" | "Clothing" | "Accessory";
+type Category = string;
 
 export type AddProductPayload = {
   title: string;
@@ -12,19 +12,18 @@ export type AddProductPayload = {
 
 type Props = {
   open: boolean;
+  categories: Category[];
   onClose: () => void;
   onSubmit: (data: AddProductPayload) => void;
 };
 
-const categories: Category[] = ["Electronic", "Clothing", "Accessory"];
-
-const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
+const AddProductModal: React.FC<Props> = ({ open, categories, onClose, onSubmit }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const btnCloseRef = useRef<HTMLButtonElement | null>(null);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [category, setCategory] = useState<Category>("Clothing");
+  const [category, setCategory] = useState<Category>(categories[0] || "");
   const [price, setPrice] = useState<string>("");
   const [image, setImage] = useState<File | null>(null);
   const preview = useMemo(() => (image ? URL.createObjectURL(image) : ""), [image]);
@@ -34,11 +33,18 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
     if (open) {
       setTitle("");
       setDesc("");
-      setCategory("Clothing");
+      setCategory(categories[0] || "");
       setPrice("");
       setImage(null);
     }
-  }, [open]);
+  }, [open, categories]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!category && categories.length > 0) {
+      setCategory(categories[0]);
+    }
+  }, [open, categories, category]);
 
   // Close on ESC / click outside
   useEffect(() => {
