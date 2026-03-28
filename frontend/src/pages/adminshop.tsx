@@ -16,22 +16,43 @@ type ApiCategory = {
   name?: string;
 };
 
-const initialData: Product[] = [
-  { id: 100000, title: "Mouse", category: "Electronic", price: 5, status: "Active", createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone", category: "Electronic", price: 100, status: "Sold", createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop", category: "Electronic", price: 250, status: "Active", createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard", category: "Electronic", price: 30, status: "Active", createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt", category: "Clothing", price: 15, status: "Active", createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes", category: "Clothing", price: 50, status: "Sold", createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie", category: "Clothing", price: 25, status: "Active", createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket", category: "Clothing", price: 75, status: "Active", createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring", category: "Accessory", price: 1, status: "Sold", createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod", category: "Electronic", price: 10, status: "Active", createdAt: "2024-12-10" },
-];
+type ApiProduct = {
+  id?: number | string;
+  title?: string;
+  price?: number | string;
+  status?: string;
+  created_at?: string;
+  createdAt?: string;
+  User?: {
+    role?: string;
+  };
+  Category?: {
+    id?: number | string;
+    name?: string;
+  };
+};
+
+const FALLBACK_CATEGORIES: Category[] = ["Electronic", "Clothing", "Accessory"];
+
+function parseNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function mapBackendStatusToUi(status: string | undefined): Status {
+  return status === "sold" ? "Sold" : "Active";
+}
+
+function mapUiStatusToBackend(status: Status): "sold" | "available" {
+  return status === "Sold" ? "sold" : "available";
+}
 
 const AdminShop: React.FC = () => {
-  const [rows, setRows] = useState<Product[]>(initialData);
-  const [categories, setCategories] = useState<Category[]>(["Electronic", "Clothing", "Accessory"]);
+  const [rows, setRows] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
+  const [categoryIdByName, setCategoryIdByName] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
@@ -48,24 +69,56 @@ const AdminShop: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
-        const response = await apiRequest<ApiCategory[]>("/api/categories");
+        setIsLoading(true);
+        setLoadError("");
+
+        const [categoriesResponse, productsResponse] = await Promise.all([
+          apiRequest<ApiCategory[]>("/api/categories"),
+          apiRequest<ApiProduct[]>("/api/products?owner_role=admin&limit=300"),
+        ]);
+
         if (!isMounted) return;
 
-        const names = (Array.isArray(response) ? response : [])
-          .map((item) => (item?.name || "").trim())
+        const categoryRecords = Array.isArray(categoriesResponse) ? categoriesResponse : [];
+        const categoryMap: Record<string, number> = {};
+        const categoryNames = categoryRecords
+          .map((item) => {
+            const name = (item?.name || "").trim();
+            const id = parseNumber(item?.id, 0);
+            if (name && id > 0) {
+              categoryMap[name] = id;
+            }
+            return name;
+          })
           .filter(Boolean);
 
-        if (names.length > 0) {
-          setCategories(names);
+        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : [])
+          .filter((item) => !item?.User?.role || item.User.role === "admin")
+          .map((item) => ({
+            id: parseNumber(item.id),
+            title: item.title || "Untitled",
+            category: item.Category?.name || "Unknown",
+            price: parseNumber(item.price),
+            status: mapBackendStatusToUi(item.status),
+            createdAt: item.created_at || item.createdAt || "",
+          }));
+
+        setCategoryIdByName(categoryMap);
+        setCategories(categoryNames.length > 0 ? categoryNames : FALLBACK_CATEGORIES);
+        setRows(mappedProducts);
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load admin products");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
-      } catch {
-        // Keep fallback categories if API is unavailable.
       }
     };
 
-    loadCategories();
+    loadData();
 
     return () => {
       isMounted = false;
@@ -122,35 +175,94 @@ const AdminShop: React.FC = () => {
   const onExportDocx = () => exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
 
   // ---- Add ----
-  const handleAddProduct = (data: AddProductPayload) => {
-    const nextId = rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 100000;
-    const today = new Date();
-    const createdAt = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const handleAddProduct = async (data: AddProductPayload) => {
+    const categoryId = categoryIdByName[data.category];
+    if (!categoryId) {
+      setLoadError("Selected category is invalid");
+      return;
+    }
 
-    const newRow: Product = {
-      id: nextId,
-      title: data.title,
-      category: data.category,
-      price: data.price,
-      status: "Active",
-      createdAt,
-    };
+    try {
+      const imageUrls = data.s3Key ? [data.s3Key] : [];
 
-    setRows((prev) => [newRow, ...prev]);
-    setOpenAdd(false);
+      const created = await apiRequest<ApiProduct>("/api/products", {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description || "",
+          price: data.price,
+          category_id: categoryId,
+          image_urls: imageUrls,
+        }),
+      });
+
+      const newRow: Product = {
+        id: parseNumber(created?.id),
+        title: created?.title || data.title,
+        category: created?.Category?.name || data.category,
+        price: parseNumber(created?.price, data.price),
+        status: mapBackendStatusToUi(created?.status),
+        createdAt: created?.created_at || created?.createdAt || new Date().toISOString(),
+      };
+
+      setRows((prev) => [newRow, ...prev]);
+      setOpenAdd(false);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to add product");
+    }
   };
 
   // ---- Edit ----
-  const handleEditProduct = (updated: Product) => {
-    setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    setEditTarget(null);
+  const handleEditProduct = async (updated: Product) => {
+    const categoryId = categoryIdByName[updated.category];
+    if (!categoryId) {
+      setLoadError("Selected category is invalid");
+      return;
+    }
+
+    try {
+      const saved = await apiRequest<ApiProduct>(`/api/products/${updated.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: updated.title,
+          price: updated.price,
+          category_id: categoryId,
+          status: mapUiStatusToBackend(updated.status),
+        }),
+      });
+
+      const nextRow: Product = {
+        id: parseNumber(saved?.id, updated.id),
+        title: saved?.title || updated.title,
+        category: saved?.Category?.name || updated.category,
+        price: parseNumber(saved?.price, updated.price),
+        status: mapBackendStatusToUi(saved?.status),
+        createdAt: saved?.created_at || saved?.createdAt || updated.createdAt,
+      };
+
+      setRows((prev) => prev.map((r) => (r.id === updated.id ? nextRow : r)));
+      setEditTarget(null);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to update product");
+    }
   };
 
   // ---- Delete ----
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (!deleteTarget) return;
-    setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-    setDeleteTarget(null);
+
+    try {
+      await apiRequest<void>(`/api/products/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to delete product");
+    }
   };
 
   return (
@@ -228,6 +340,18 @@ const AdminShop: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
+            Loading admin products...
+          </div>
+        )}
+
+        {!!loadError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
 
         {/* Table */}
         <div className="mt-4 overflow-x-auto">

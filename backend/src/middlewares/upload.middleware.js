@@ -132,8 +132,18 @@ const uploadChatImages = multer({
   },
 }).array('images', MAX_CHAT_IMAGES);
 
+const uploadProductImage = multer({
+  storage: productImageStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE_BYTES,
+    files: 1,
+  },
+}).single('image');
+
 export {
   uploadProductImages,
+  uploadProductImage,
   uploadAvatar,
   uploadCover,
   uploadCommunityImages,

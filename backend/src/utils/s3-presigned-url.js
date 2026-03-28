@@ -1,11 +1,12 @@
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import s3Client from '../config/aws.js';
+import crypto from 'crypto';
 
 const DEFAULT_EXPIRATION_SECONDS = 3600; // 1 hour
 
 /**
- * Generate a pre-signed URL for accessing an S3 object
+ * Generate a pre-signed URL for accessing an S3 object (GET)
  * @param {string} s3Key - The S3 object key (path)
  * @param {number} expirationSeconds - URL expiration time in seconds (default: 1 hour)
  * @returns {Promise<string>} Pre-signed URL
@@ -28,6 +29,74 @@ export async function generatePresignedUrl(
   } catch (error) {
     console.error('Error generating pre-signed URL:', error);
     throw new Error(`Failed to generate pre-signed URL for ${s3Key}`);
+  }
+}
+
+/**
+ * Generate a pre-signed URL for uploading an object to S3 (PUT)
+ * @param {string} s3Key - The S3 object key (path)
+ * @param {string} contentType - The MIME type of the file being uploaded (e.g., 'image/jpeg')
+ * @param {number} expirationSeconds - URL expiration time in seconds (default: 1 hour)
+ * @returns {Promise<string>} Pre-signed PUT URL
+ */
+export async function generatePresignedPutUrl(
+  s3Key,
+  contentType = 'application/octet-stream',
+  expirationSeconds = DEFAULT_EXPIRATION_SECONDS
+) {
+  try {
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: s3Key,
+      ContentType: contentType,
+    });
+
+    const presignedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: expirationSeconds,
+    });
+
+    return presignedUrl;
+  } catch (error) {
+    console.error('Error generating presigned PUT URL:', error);
+    throw new Error(`Failed to generate presigned PUT URL for ${s3Key}`);
+  }
+}
+
+/**
+ * Generate a unique S3 key for a product image
+ * @param {string} filename - Original filename
+ * @returns {string} Unique S3 key path
+ */
+export function generateProductImageKey(filename) {
+  const timestamp = Date.now();
+  const randomId = crypto.randomBytes(8).toString('hex');
+  const ext = filename.substring(filename.lastIndexOf('.')) || '.jpg';
+  return `nisittrade/products/${timestamp}-${randomId}${ext}`;
+}
+
+/**
+ * Upload a product image to S3 directly
+ * @param {Buffer} fileBuffer - File buffer from multer
+ * @param {string} filename - Original filename
+ * @param {string} contentType - MIME type of the file
+ * @returns {Promise<string>} S3 key of the uploaded image
+ */
+export async function uploadProductImageToS3(fileBuffer, filename, contentType = 'application/octet-stream') {
+  try {
+    const s3Key = generateProductImageKey(filename);
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: s3Key,
+      Body: fileBuffer,
+      ContentType: contentType,
+    });
+
+    await s3Client.send(command);
+    return s3Key;
+  } catch (error) {
+    console.error('Error uploading product image to S3:', error);
+    throw new Error(`Failed to upload image to S3: ${error.message}`);
   }
 }
 

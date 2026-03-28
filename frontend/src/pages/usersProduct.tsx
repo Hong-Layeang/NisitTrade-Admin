@@ -108,15 +108,17 @@ const UsersProduct: React.FC = () => {
 
         setCategories(categoryNames);
 
-        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : []).map((item) => ({
-          id: parseNumber(item.id),
-          title: item.title || "Untitled",
-          userId: parseNumber(item.user_id ?? item.User?.id),
-          category: item.Category?.name || "Unknown",
-          price: parseNumber(item.price),
-          reported: reportedProductIds.has(parseNumber(item.id)),
-          createdAt: item.created_at || item.createdAt || "",
-        }));
+        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : [])
+          .filter((item) => !item?.User?.role || item.User.role === "user")
+          .map((item) => ({
+            id: parseNumber(item.id),
+            title: item.title || "Untitled",
+            userId: parseNumber(item.user_id ?? item.User?.id),
+            category: item.Category?.name || "Unknown",
+            price: parseNumber(item.price),
+            reported: reportedProductIds.has(parseNumber(item.id)),
+            createdAt: item.created_at || item.createdAt || "",
+          }));
 
         setProducts(mappedProducts);
       } catch (error) {
