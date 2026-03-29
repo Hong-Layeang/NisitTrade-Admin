@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 
 const { Product, User, Category, ProductImage } = models;
 
@@ -38,6 +39,7 @@ export default async function updateProductStatusController(req, res) {
       });
     }
 
+    const previousStatus = product.status;
     await product.update({ status });
 
     // Fetch updated product with associations
@@ -57,6 +59,38 @@ export default async function updateProductStatusController(req, res) {
         }
       ]
     });
+
+    await writeActivityLog({
+      actionType: 'product_updated',
+      message: `Product updated: ${updatedProduct?.title || 'Untitled'}`,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      targetType: 'Product',
+      targetId: Number(id),
+      metadata: { previousStatus, status },
+    });
+
+    if (previousStatus !== 'sold' && status === 'sold') {
+      await writeActivityLog({
+        actionType: 'product_marked_sold',
+        message: `Product marked as sold: ${updatedProduct?.title || 'Untitled'}`,
+        actorUserId: req.user?.id,
+        actorRole: req.user?.role,
+        targetType: 'Product',
+        targetId: Number(id),
+      });
+    }
+
+    if (req.user?.role === 'admin') {
+      await writeActivityLog({
+        actionType: 'admin_updated_something',
+        message: `Admin updated product status: ${updatedProduct?.title || 'Untitled'} -> ${status}`,
+        actorUserId: req.user?.id,
+        actorRole: req.user?.role,
+        targetType: 'Product',
+        targetId: Number(id),
+      });
+    }
 
     res.json(updatedProduct);
   } catch (error) {

@@ -1,4 +1,5 @@
 import models from '../../models/index.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 
 const { Product, ProductImage, User, Category } = models;
 
@@ -58,6 +59,16 @@ export default async function createProductController(req, res) {
           attributes: ['id', 'image_url', 'created_at', 'updated_at']
         }
       ]
+    });
+
+    await writeActivityLog({
+      actionType: 'product_created',
+      message: `Product created: ${product.title}`,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      targetType: 'Product',
+      targetId: product.id,
+      metadata: { title: product.title },
     });
 
     res.status(201).json(fullProduct);

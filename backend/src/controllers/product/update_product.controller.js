@@ -1,5 +1,6 @@
 import models from '../../models/index.js';
 import { enrichProductWithPresignedUrls } from '../../utils/s3-presigned-url.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 
 const { Product, ProductImage, User, Category } = models;
 
@@ -52,6 +53,7 @@ export default async function updateProductController(req, res) {
     }
 
     // Update product
+    const previousStatus = product.status;
     await product.update(updateData);
 
     // Update images if provided
@@ -84,6 +86,39 @@ export default async function updateProductController(req, res) {
         }
       ]
     });
+
+    const nextTitle = updatedProduct?.title || product.title;
+    await writeActivityLog({
+      actionType: 'product_updated',
+      message: `Product updated: ${nextTitle}`,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      targetType: 'Product',
+      targetId: productId,
+      metadata: { status: updatedProduct?.status || previousStatus },
+    });
+
+    if (previousStatus !== 'sold' && updatedProduct?.status === 'sold') {
+      await writeActivityLog({
+        actionType: 'product_marked_sold',
+        message: `Product marked as sold: ${nextTitle}`,
+        actorUserId: req.user?.id,
+        actorRole: req.user?.role,
+        targetType: 'Product',
+        targetId: productId,
+      });
+    }
+
+    if (req.user?.role === 'admin') {
+      await writeActivityLog({
+        actionType: 'admin_updated_something',
+        message: `Admin updated product: ${nextTitle}`,
+        actorUserId: req.user?.id,
+        actorRole: req.user?.role,
+        targetType: 'Product',
+        targetId: productId,
+      });
+    }
 
     const enrichedProduct = await enrichProductWithPresignedUrls(updatedProduct.toJSON());
     res.json(enrichedProduct);

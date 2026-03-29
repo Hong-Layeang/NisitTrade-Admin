@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import models from '../../models/index.js';
 
-const { User, Product, Report } = models;
+const { User, Product, ActivityLog } = models;
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -27,9 +27,7 @@ export default async function getDashboardSummaryController(req, res) {
       remainingListing,
       productSold,
       soldProducts,
-      recentUsers,
-      recentProducts,
-      recentReports,
+      recentActivities,
     ] = await Promise.all([
       User.count({ where: { role: 'user' } }),
       Product.count({
@@ -46,24 +44,10 @@ export default async function getDashboardSummaryController(req, res) {
         attributes: ['price', 'created_at'],
         raw: true,
       }),
-      User.findAll({
-        where: { role: 'user' },
-        attributes: ['full_name', 'created_at'],
+      ActivityLog.findAll({
+        attributes: ['action_type', 'message', 'created_at'],
         order: [['created_at', 'DESC']],
-        limit: 2,
-        raw: true,
-      }),
-      Product.findAll({
-        attributes: ['title', 'created_at'],
-        order: [['created_at', 'DESC']],
-        limit: 2,
-        raw: true,
-      }),
-      Report.findAll({
-        where: { reportable_type: 'Product' },
-        attributes: ['status', 'created_at'],
-        order: [['created_at', 'DESC']],
-        limit: 1,
+        limit: 30,
         raw: true,
       }),
     ]);
@@ -116,25 +100,13 @@ export default async function getDashboardSummaryController(req, res) {
       }
     });
 
-    const activities = [
-      ...recentUsers.map((row) => ({
-        text: `New user registered: ${row.full_name || 'Unknown'}`,
-        type: 'user',
+    const activities = recentActivities
+      .map((row) => ({
+        text: row.message,
+        type: row.action_type,
         created_at: row.created_at,
-      })),
-      ...recentProducts.map((row) => ({
-        text: `Product listed: ${row.title || 'Untitled'}`,
-        type: 'listed',
-        created_at: row.created_at,
-      })),
-      ...recentReports.map((row) => ({
-        text: `Product report: ${String(row.status || 'open').toUpperCase()}`,
-        type: 'report',
-        created_at: row.created_at,
-      })),
-    ]
-      .sort((a, b) => +new Date(b.created_at || 0) - +new Date(a.created_at || 0))
-      .slice(0, 6);
+      }))
+      .slice(0, 12);
 
     return res.json({
       stats: {

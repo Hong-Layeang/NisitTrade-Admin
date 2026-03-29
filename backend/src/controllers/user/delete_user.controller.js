@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import models, { connectDB } from '../../models/index.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 
 const {
   User,
@@ -44,7 +45,19 @@ export default async function deleteUserController(req, res) {
       return res.status(403).json({ message: 'Only user accounts can be deleted from this endpoint' });
     }
 
+    const targetUserName = targetUser.full_name || `User #${targetUserId}`;
+
     await connectDB.transaction(async (transaction) => {
+      await writeActivityLog({
+        actionType: 'admin_banned_user',
+        message: `Admin banned user: ${targetUserName}`,
+        actorUserId: requesterId,
+        actorRole: req.user?.role,
+        targetType: 'User',
+        targetId: targetUserId,
+        transaction,
+      });
+
       const [productRows, communityRows, participantRows] = await Promise.all([
         Product.findAll({ where: { user_id: targetUserId }, attributes: ['id'], transaction, raw: true }),
         CommunityPost.findAll({ where: { user_id: targetUserId }, attributes: ['id'], transaction, raw: true }),

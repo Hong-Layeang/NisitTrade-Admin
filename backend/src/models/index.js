@@ -17,6 +17,7 @@ import reportModel from './report.js';
 import userFollowModel from './user_follow.js';
 import userBlockModel from './user_block.js';
 import communityPostModel from './community_post.js';
+import activityLogModel from './activity_log.js';
 
 const models = {
   User: userModel(connectDB, DataTypes),
@@ -35,6 +36,7 @@ const models = {
   UserFollow: userFollowModel(connectDB, DataTypes),
   UserBlock: userBlockModel(connectDB, DataTypes),
   CommunityPost: communityPostModel(connectDB, DataTypes),
+  ActivityLog: activityLogModel(connectDB, DataTypes),
 };
 
 Object.values(models).forEach(model => {

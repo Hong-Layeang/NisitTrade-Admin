@@ -1,5 +1,6 @@
 import models from '../../models/index.js';
 import { buildUserResponse, generateToken, } from '../../utils/helper/auth.helpers.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 import { jwtVerifyMicrosoftIdToken, getAllowedDomains, getMicrosoftConfig, extractEmail, extractFullName, normalizeEmail, isAllowedDomain, } from '../../utils/helper/ms.helpers.js';
 
 export default async function microsoftValidateController(req, res) {
@@ -66,6 +67,15 @@ export default async function microsoftValidateController(req, res) {
         password_hash: null,
         password_set: false,
         university_id: university?.id ?? null,
+      });
+
+      await writeActivityLog({
+        actionType: 'user',
+        message: `New user registered: ${user.full_name || user.email}`,
+        actorUserId: user.id,
+        actorRole: user.role,
+        targetType: 'User',
+        targetId: user.id,
       });
     } else {
       const updates = {};

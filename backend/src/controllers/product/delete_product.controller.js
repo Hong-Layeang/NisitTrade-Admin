@@ -1,5 +1,6 @@
 import models from '../../models/index.js';
 import { connectDB } from '../../models/index.js';
+import { writeActivityLog } from '../../utils/activity-log.js';
 
 const { Product, Like, Comment, SavedItem, Report } = models;
 
@@ -24,7 +25,30 @@ export default async function deleteProductController(req, res) {
       });
     }
 
+    const productTitle = product.title || 'Untitled';
     await connectDB.transaction(async (transaction) => {
+      await writeActivityLog({
+        actionType: 'product_deleted',
+        message: `Product deleted: ${productTitle}`,
+        actorUserId: user_id,
+        actorRole: user_role,
+        targetType: 'Product',
+        targetId: Number(id),
+        transaction,
+      });
+
+      if (user_role === 'admin') {
+        await writeActivityLog({
+          actionType: 'admin_deleted_product',
+          message: `Admin deleted product: ${productTitle}`,
+          actorUserId: user_id,
+          actorRole: user_role,
+          targetType: 'Product',
+          targetId: Number(id),
+          transaction,
+        });
+      }
+
       await Promise.all([
         Like.destroy({
           where: {
