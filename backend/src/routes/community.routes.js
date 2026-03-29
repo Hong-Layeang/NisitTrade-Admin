@@ -11,6 +11,8 @@ import createCommunityCommentController from '../controllers/community/create_co
 import updateCommunityCommentController from '../controllers/community/update_comment.controller.js';
 import deleteCommunityCommentController from '../controllers/community/delete_comment.controller.js';
 import createCommunityPostReportController from '../controllers/community/create_post_report.controller.js';
+import hideCommunityPostForViewerController from '../controllers/community/hide_post_for_viewer.controller.js';
+import unhideCommunityPostForViewerController from '../controllers/community/unhide_post_for_viewer.controller.js';
 import createSavedCommunityPostController from '../controllers/saved/create_saved_community_post.controller.js';
 import deleteSavedCommunityPostController from '../controllers/saved/delete_saved_community_post.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
@@ -24,6 +26,8 @@ router.get('/:postId', authMiddleware, getCommunityPostController);
 router.put('/:postId', authMiddleware, uploadCommunityImages, updateCommunityPostController);
 router.delete('/:postId', authMiddleware, deleteCommunityPostController);
 router.post('/:postId/reports', authMiddleware, createCommunityPostReportController);
+router.patch('/:postId/hide-for-me', authMiddleware, hideCommunityPostForViewerController);
+router.patch('/:postId/unhide-for-me', authMiddleware, unhideCommunityPostForViewerController);
 router.post('/:postId/likes', authMiddleware, createCommunityLikeController);
 router.delete('/:postId/likes', authMiddleware, deleteCommunityLikeController);
 router.post('/:postId/saves', authMiddleware, createSavedCommunityPostController);

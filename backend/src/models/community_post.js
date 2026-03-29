@@ -61,6 +61,15 @@ export default (sequelize, DataTypes) => {
       },
       as: 'SavedItems',
     });
+
+    CommunityPost.hasMany(models.HiddenItem, {
+      foreignKey: 'hideable_id',
+      constraints: false,
+      scope: {
+        hideable_type: 'CommunityPost',
+      },
+      as: 'HiddenItems',
+    });
   };
 
   return CommunityPost;

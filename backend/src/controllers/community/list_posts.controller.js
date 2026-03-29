@@ -9,6 +9,7 @@ const {
   User,
   University,
   UserFollow,
+  HiddenItem,
 } = models;
 
 export default async function listCommunityPostsController(req, res) {
@@ -48,7 +49,25 @@ export default async function listCommunityPostsController(req, res) {
       userWhere.university_id = requester.university_id;
     }
 
+    const hiddenRows = requesterId
+      ? await HiddenItem.findAll({
+          where: {
+            user_id: requesterId,
+            hideable_type: 'CommunityPost',
+          },
+          attributes: ['hideable_id'],
+        })
+      : [];
+    const hiddenPostIds = hiddenRows.map((row) => row.hideable_id);
+
     const posts = await CommunityPost.findAll({
+      where: hiddenPostIds.length > 0
+          ? {
+              id: {
+                [Op.notIn]: hiddenPostIds,
+              },
+            }
+          : undefined,
       include: [
         {
           model: User,

@@ -82,6 +82,11 @@ export default (sequelize, DataTypes) => {
       foreignKey: 'user_id',
       onDelete: 'SET NULL',
     });
+
+    User.hasMany(models.HiddenItem, {
+      foreignKey: 'user_id',
+      onDelete: 'CASCADE',
+    });
   };
 
   return User;

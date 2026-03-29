@@ -1,7 +1,7 @@
 ﻿import models from '../../models/index.js';
 import { fn, col } from 'sequelize';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
-import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
+import { getPresenceForUserIds } from '../../utils/websockets/presence.socket.js';
 
 const { User, University, UserFollow, Rating } = models;
 

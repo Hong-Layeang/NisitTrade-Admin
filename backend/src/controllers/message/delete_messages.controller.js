@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import models from '../../models/index.js';
-import { broadcastMessageDelete } from '../../websockets/chat.socket.js';
+import { broadcastMessageDelete } from '../../utils/websockets/chat.socket.js';
 
 const { Message, ConversationParticipant, MessageRead } = models;
 

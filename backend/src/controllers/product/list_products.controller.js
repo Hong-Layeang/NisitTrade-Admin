@@ -14,6 +14,7 @@ export default async function listProductsController(req, res) {
       offset = 0 
     } = req.query;
     const requesterRole = req.user?.role;
+    const requesterId = req.user?.id;
 
     const where = {};
 
@@ -38,6 +39,24 @@ export default async function listProductsController(req, res) {
         { title: { [Op.iLike]: `%${search}%` } },
         { description: { [Op.iLike]: `%${search}%` } }
       ];
+    }
+
+    if (requesterId) {
+      const hiddenProducts = await models.HiddenItem.findAll({
+        where: {
+          user_id: requesterId,
+          hideable_type: 'Product',
+        },
+        attributes: ['hideable_id'],
+      });
+      const hiddenProductIds = hiddenProducts.map(item => item.hideable_id);
+
+      if (hiddenProductIds.length > 0) {
+        where[Op.and] = [
+          ...(where[Op.and] ?? []),
+          { id: { [Op.notIn]: hiddenProductIds } },
+        ];
+      }
     }
 
     const products = await Product.findAll({

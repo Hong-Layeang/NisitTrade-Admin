@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 
 import models from '../../models/index.js';
+import { broadcastMessageDelete } from '../../utils/websockets/chat.socket.js';
 
 const { Conversation, ConversationParticipant, Message, MessageRead } = models;
 
@@ -30,6 +31,8 @@ export default async function deleteConversationController(req, res) {
       return res.status(404).json({ message: 'Conversation not found' });
     }
 
+    let deletedMessageIds = [];
+
     await Conversation.sequelize.transaction(async transaction => {
       const messages = await Message.findAll({
         where: { conversation_id: conversationId },
@@ -40,6 +43,8 @@ export default async function deleteConversationController(req, res) {
       const messageIds = messages
         .map((message) => Number(message.id))
         .filter((messageId) => Number.isInteger(messageId) && messageId > 0);
+
+      deletedMessageIds = messageIds;
 
       if (messageIds.length > 0) {
         await MessageRead.destroy({
@@ -59,6 +64,11 @@ export default async function deleteConversationController(req, res) {
         },
         { transaction },
       );
+    });
+
+    const io = req.app.get('io');
+    broadcastMessageDelete(io, conversationId, deletedMessageIds, {
+      clearAll: true,
     });
 
     return res.status(204).send();

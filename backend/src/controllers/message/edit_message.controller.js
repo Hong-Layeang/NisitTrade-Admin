@@ -1,5 +1,5 @@
 import models from '../../models/index.js';
-import { broadcastMessageUpdate } from '../../websockets/chat.socket.js';
+import { broadcastMessageUpdate } from '../../utils/websockets/chat.socket.js';
 
 const { Message, ConversationParticipant } = models;
 

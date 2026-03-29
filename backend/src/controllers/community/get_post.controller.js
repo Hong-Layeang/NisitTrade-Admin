@@ -8,12 +8,26 @@ const {
   Comment,
   User,
   University,
+  HiddenItem,
 } = models;
 
 export default async function getCommunityPostController(req, res) {
   try {
     const { postId } = req.params;
     const userId = req.user?.id;
+
+    if (userId) {
+      const hiddenForViewer = await HiddenItem.findOne({
+        where: {
+          user_id: userId,
+          hideable_type: 'CommunityPost',
+          hideable_id: Number(postId),
+        },
+      });
+      if (hiddenForViewer) {
+        return res.status(404).json({ message: 'Community post not found' });
+      }
+    }
 
     const post = await CommunityPost.findByPk(postId, {
       include: [

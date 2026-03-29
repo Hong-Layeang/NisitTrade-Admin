@@ -2,7 +2,7 @@ import { Op, fn, col } from 'sequelize';
 import models from '../../models/index.js';
 import { presignIfS3Url } from '../../utils/s3-presigned-url.js';
 import { getUserBlockStatuses } from '../../utils/user-blocks.js';
-import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
+import { getPresenceForUserIds } from '../../utils/websockets/presence.socket.js';
 
 const { User, University, UserFollow, Rating } = models;
 

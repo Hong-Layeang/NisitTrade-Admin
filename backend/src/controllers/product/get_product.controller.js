@@ -9,6 +9,20 @@ export default async function getProductController(req, res) {
     const requesterId = req.user?.id;
     const requesterRole = req.user?.role;
 
+    if (requesterId) {
+      const hiddenForViewer = await models.HiddenItem.findOne({
+        where: {
+          user_id: requesterId,
+          hideable_type: 'Product',
+          hideable_id: Number(id),
+        },
+      });
+
+      if (hiddenForViewer && requesterRole !== 'admin') {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+    }
+
     const product = await Product.findByPk(id, {
       include: [
         {

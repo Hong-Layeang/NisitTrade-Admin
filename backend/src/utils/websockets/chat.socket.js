@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import models from '../models/index.js';
+import models from '../../models/index.js';
 
 const { Message, ConversationParticipant, User, Product, ProductImage, MessageRead } = models;
 
@@ -298,9 +298,13 @@ export function broadcastMessageUpdate(io, conversationId, payload) {
   io.to(roomName(conversationId)).emit('chat:updated', payload);
 }
 
-export function broadcastMessageDelete(io, conversationId, messageIds) {
+export function broadcastMessageDelete(io, conversationId, messageIds, options = {}) {
   if (!io) return;
-  io.to(roomName(conversationId)).emit('chat:deleted', { messageIds, conversationId });
+  io.to(roomName(conversationId)).emit('chat:deleted', {
+    messageIds,
+    conversationId,
+    clearAll: options.clearAll === true,
+  });
 }
 
 export function broadcastNewMessage(io, conversationId, messageJson) {

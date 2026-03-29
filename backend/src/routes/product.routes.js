@@ -11,6 +11,8 @@ import updateProductStatusController from '../controllers/product/update_product
 import shareProductController from '../controllers/product/share_product.controller.js';
 import hideProductController from '../controllers/product/hide_product.controller.js';
 import unhideProductController from '../controllers/product/unhide_product.controller.js';
+import hideProductForViewerController from '../controllers/product/hide_product_for_viewer.controller.js';
+import unhideProductForViewerController from '../controllers/product/unhide_product_for_viewer.controller.js';
 import likeRoutes from '../routes/like.routes.js';
 import commentRoutes from '../routes/comment.routes.js';
 import savedRoutes from '../routes/saved.routes.js';
@@ -37,6 +39,8 @@ router.patch('/:id/status', authMiddleware, updateProductStatusController); // p
 // hide/unhide
 router.patch('/:id/hide', authMiddleware, hideProductController); // patch
 router.patch('/:id/unhide', authMiddleware, unhideProductController); // patch
+router.patch('/:id/hide-for-me', authMiddleware, hideProductForViewerController); // patch
+router.patch('/:id/unhide-for-me', authMiddleware, unhideProductForViewerController); // patch
 
 // share
 router.get('/:id/share', authMiddleware, shareProductController); // get

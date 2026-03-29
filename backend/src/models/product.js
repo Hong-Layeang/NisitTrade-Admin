@@ -62,6 +62,15 @@ export default (sequelize, DataTypes) => {
       },
       as: 'SavedItems',
     });
+
+    Product.hasMany(models.HiddenItem, {
+      foreignKey: 'hideable_id',
+      constraints: false,
+      scope: {
+        hideable_type: 'Product',
+      },
+      as: 'HiddenItems',
+    });
   };
 
   return Product;

@@ -86,40 +86,45 @@ export default async function createConversationController(req, res) {
       return res.status(400).json({ message: 'Invalid participant user id' });
     }
 
-    const conversationWhere = product_id
-      ? { product_id }
-      : { product_id: null };
-
-    const conversations = await Conversation.findAll({
-      where: conversationWhere,
-      attributes: ['id']
+    const participantRows = await ConversationParticipant.findAll({
+      where: {
+        user_id: { [Op.in]: [userId, otherParticipantId] },
+      },
+      attributes: ['conversation_id', 'user_id'],
+      raw: true,
     });
 
-    if (conversations.length > 0) {
-      const conversationIds = conversations.map(item => item.id);
-      const participants = await ConversationParticipant.findAll({
-        where: {
-          conversation_id: { [Op.in]: conversationIds },
-          user_id: { [Op.in]: [userId, otherParticipantId] }
-        }
-      });
-
+    if (participantRows.length > 0) {
       const participantMap = new Map();
-      participants.forEach(entry => {
-        if (!participantMap.has(entry.conversation_id)) {
-          participantMap.set(entry.conversation_id, new Set());
+      participantRows.forEach(entry => {
+        const conversationId = Number(entry.conversation_id);
+        if (!participantMap.has(conversationId)) {
+          participantMap.set(conversationId, new Set());
         }
-        participantMap.get(entry.conversation_id).add(String(entry.user_id));
+        participantMap.get(conversationId).add(String(entry.user_id));
       });
 
-      const existingConversationId = [...participantMap.entries()].find(([, set]) =>
-        set.has(String(userId)) && set.has(String(otherParticipantId))
-      )?.[0];
+      const sharedConversationIds = [...participantMap.entries()]
+        .filter(([, set]) =>
+          set.has(String(userId)) && set.has(String(otherParticipantId))
+        )
+        .map(([conversationId]) => conversationId);
 
-      if (existingConversationId) {
-        const existingConversation = await loadConversationPayload(existingConversationId, userId);
+      if (sharedConversationIds.length > 0) {
+        const [latestSharedConversation] = await Conversation.findAll({
+          where: { id: { [Op.in]: sharedConversationIds } },
+          attributes: ['id'],
+          order: [['updated_at', 'DESC']],
+          limit: 1,
+        });
 
-        return res.status(200).json(existingConversation);
+        if (latestSharedConversation) {
+          const existingConversation = await loadConversationPayload(
+            latestSharedConversation.id,
+            userId,
+          );
+          return res.status(200).json(existingConversation);
+        }
       }
     }
 

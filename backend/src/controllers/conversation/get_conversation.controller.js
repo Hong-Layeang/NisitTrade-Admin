@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 import { getUserBlockStatus } from '../../utils/user-blocks.js';
-import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
+import { getPresenceForUserIds } from '../../utils/websockets/presence.socket.js';
 
 const { Conversation, ConversationParticipant, Product, ProductImage, User } = models;
 

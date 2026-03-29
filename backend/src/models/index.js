@@ -18,6 +18,7 @@ import userFollowModel from './user_follow.js';
 import userBlockModel from './user_block.js';
 import communityPostModel from './community_post.js';
 import ratingModel from './rating.js';
+import hiddenItemModel from './hidden_item.js';
 
 const models = {
   User: userModel(connectDB, DataTypes),
@@ -37,6 +38,7 @@ const models = {
   UserBlock: userBlockModel(connectDB, DataTypes),
   CommunityPost: communityPostModel(connectDB, DataTypes),
   Rating: ratingModel(connectDB, DataTypes),
+  HiddenItem: hiddenItemModel(connectDB, DataTypes),
 };
 
 Object.values(models).forEach(model => {

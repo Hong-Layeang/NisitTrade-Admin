@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 import { getUserBlockStatus } from '../../utils/user-blocks.js';
-import { broadcastNewMessage, notifyUserNewMessage } from '../../websockets/chat.socket.js';
+import { broadcastNewMessage, notifyUserNewMessage } from '../../utils/websockets/chat.socket.js';
 
 const { Message, Conversation, ConversationParticipant, User, Product, ProductImage } = models;
 
@@ -33,18 +33,6 @@ export default async function sendMessageController(req, res) {
 			return res.status(404).json({ message: 'Conversation not found' });
 		}
 
-		if (attached_product_id != null) {
-			if (!conversation.product_id) {
-				return res.status(400).json({ message: 'Conversation has no product context' });
-			}
-
-			if (String(attached_product_id) !== String(conversation.product_id)) {
-				return res.status(400).json({
-					message: 'Attached product must match the conversation product',
-				});
-			}
-		}
-
 		const participant = await ConversationParticipant.findOne({
 			where: { conversation_id: conversationId, user_id: userId }
 		});
@@ -61,6 +49,26 @@ export default async function sendMessageController(req, res) {
 		const otherParticipantId = otherParticipants
 			.map((entry) => Number(entry.user_id))
 			.find((participantUserId) => participantUserId > 0 && participantUserId !== Number(userId));
+
+		if (attached_product_id != null) {
+			const attachedProduct = await Product.findByPk(attached_product_id, {
+				attributes: ['id', 'user_id'],
+			});
+			if (!attachedProduct) {
+				return res.status(404).json({ message: 'Attached product not found' });
+			}
+
+			const participantUserIds = new Set(
+				otherParticipants
+					.map((entry) => Number(entry.user_id))
+					.filter((participantUserId) => participantUserId > 0),
+			);
+			if (!participantUserIds.has(Number(attachedProduct.user_id))) {
+				return res.status(400).json({
+					message: 'Attached product must belong to a conversation participant',
+				});
+			}
+		}
 
 		if (!otherParticipantId) {
 			return res.status(400).json({

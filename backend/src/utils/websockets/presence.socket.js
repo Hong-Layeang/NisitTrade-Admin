@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 
-import models from '../models/index.js';
-import { getJwtSecret } from '../utils/helper/auth.helpers.js';
+import models from '../../models/index.js';
+import { getJwtSecret } from '../helper/auth.helpers.js';
 
 const { User } = models;
 

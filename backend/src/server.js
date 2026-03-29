@@ -18,8 +18,8 @@ import userRoutes from '../src/routes/user.routes.js';
 import connectDB, { testConnection } from '../src/config/database.js';
 import '../src/models/index.js';
 import { multerErrorMiddleware } from '../src/middlewares/multer_error.middleware.js';
-import { initPresenceSocket } from '../src/websockets/presence.socket.js';
-import { initChatSocket } from '../src/websockets/chat.socket.js';
+import { initPresenceSocket } from '../src/utils/websockets/presence.socket.js';
+import { initChatSocket } from '../src/utils/websockets/chat.socket.js';
 
 dotenv.config();
 

@@ -2,7 +2,7 @@ import { Op } from 'sequelize';
 
 import models from '../../models/index.js';
 import { getUserBlockStatuses } from '../../utils/user-blocks.js';
-import { getPresenceForUserIds } from '../../websockets/presence.socket.js';
+import { getPresenceForUserIds } from '../../utils/websockets/presence.socket.js';
 
 const {
   ConversationParticipant,
