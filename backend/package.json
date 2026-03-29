@@ -7,6 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "create-admin": "node src/utils/seeders/create_admin.js",
     "seed": "node src/utils/seeders/run_seed.js",
     "dedup": "node src/utils/seeders/dedup.js"
   },
