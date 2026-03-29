@@ -12,6 +12,7 @@ import messageRoutes from '../src/routes/message.routes.js';
 import presignedUrlRoutes from '../src/routes/presigned-url.routes.js';
 import productRoutes from '../src/routes/product.routes.js';
 import reportAdminRoutes from '../src/routes/report_admin.routes.js';
+import dashboardRoutes from '../src/routes/dashboard.routes.js';
 import universityRoutes from '../src/routes/university.routes.js';
 import userRoutes from '../src/routes/user.routes.js';
 import connectDB, { testConnection } from '../src/config/database.js';
@@ -46,6 +47,7 @@ router.use('/api/community', communityRoutes);
 router.use('/api/presigned-url', presignedUrlRoutes);
 router.use('/api/products', productRoutes);
 router.use('/api/reports', reportAdminRoutes);
+router.use('/api/dashboard', dashboardRoutes);
 router.use('/api/conversations', conversationRoutes);
 router.use('/api/messages', messageRoutes);
 

@@ -1,16 +1,16 @@
 import React from "react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
-const data = [
-  { month: "Jan", value: 400 },
-  { month: "Feb", value: 600 },
-  { month: "Mar", value: 500 },
-  { month: "Apr", value: 800 },
-  { month: "May", value: 750 },
-  { month: "Jun", value: 950 },
-];
+type SalesPoint = {
+  month: string;
+  value: number;
+};
 
-const SalesChart: React.FC = () => {
+interface SalesChartProps {
+  data: SalesPoint[];
+}
+
+const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-card border border-card dark:border-gray-800 p-4 md:p-5 overflow-hidden h-[360px]">
       <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-2">
