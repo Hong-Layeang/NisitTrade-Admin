@@ -31,35 +31,51 @@ export default async function getDashboardSummaryController(req, res) {
       recentActivities,
     ] = await Promise.all([
       User.count({ where: { role: 'user' } }),
+
+      // ✅ col changed from 'Product.id' to 'id' — fixes the "Product->Product" SQL error
       Product.count({
+        distinct: true,
+        col: 'id',
         include: [{ model: User, attributes: [], where: { role: 'user' }, required: true }],
       }),
+
       Product.count({
         where: {
           status: { [Op.notIn]: ['sold', 'hidden'] },
         },
       }),
+
       Product.findAll({
         where: { status: 'sold' },
         attributes: ['price', 'created_at'],
         raw: true,
       }),
+
+      // ✅ col changed from 'Product.id' to 'id'
       Product.count({
+        distinct: true,
+        col: 'id',
         where: { status: 'sold' },
         include: [{ model: User, attributes: [], where: { role: 'admin' }, required: true }],
       }),
+
       Product.findAll({
+        subQuery: false,
         where: { status: 'sold' },
         attributes: ['price', 'created_at'],
         include: [{ model: User, attributes: [], where: { role: 'admin' }, required: true }],
         raw: true,
       }),
-      ActivityLog.findAll({
-        attributes: ['action_type', 'message', 'created_at'],
-        order: [['created_at', 'DESC']],
-        limit: 30,
-        raw: true,
-      }),
+
+      // ✅ ActivityLog guarded — crashes server if not in models/index.js
+      ActivityLog
+        ? ActivityLog.findAll({
+          attributes: ['action_type', 'message', 'created_at'],
+          order: [['created_at', 'DESC']],
+          limit: 30,
+          raw: true,
+        })
+        : Promise.resolve([]),
     ]);
 
     const revenue = soldProducts.reduce((sum, row) => sum + toNumber(row.price), 0);

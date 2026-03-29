@@ -16,7 +16,11 @@ export default async function getAllUsersController(req, res) {
 
     const { search, limit = 50, offset = 0 } = req.query;
 
-    const where = { role: 'user' };
+    const where = {
+      role: {
+        [Op.in]: ['user', 'admin'],
+      },
+    };
 
     if (search && search.trim()) {
       where[Op.or] = [

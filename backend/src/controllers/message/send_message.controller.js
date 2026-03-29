@@ -1,6 +1,6 @@
 import models from '../../models/index.js';
 import { getUserBlockStatus } from '../../utils/user-blocks.js';
-import { broadcastNewMessage, notifyUserNewMessage } from '../../utils/websockets/chat.socket.js';
+import { broadcastNewMessage } from '../../utils/websockets/chat.socket.js';
 
 const { Message, Conversation, ConversationParticipant, User, Product, ProductImage } = models;
 

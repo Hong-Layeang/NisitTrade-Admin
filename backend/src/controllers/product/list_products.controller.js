@@ -3,6 +3,16 @@ import { Op } from 'sequelize';
 import { enrichProductsWithPresignedUrls } from '../../utils/s3-presigned-url.js';
 
 const { Product, User, Category, ProductImage, Like, Comment, University } = models;
+const userInclude = {
+  model: User,
+  attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id'],
+  include: [
+    {
+      model: University,
+      attributes: ['id', 'name', 'domain']
+    }
+  ]
+};
 
 export default async function listProductsController(req, res) {
   try {
