@@ -76,7 +76,6 @@ const Dashboard: React.FC = () => {
         setLoadError("");
 
         const summary = await apiRequest<DashboardSummaryResponse>("/api/dashboard/summary");
-
         if (!isMounted) return;
 
         const summaryStats = summary?.stats || {};
@@ -108,17 +107,12 @@ const Dashboard: React.FC = () => {
         if (!isMounted) return;
         setLoadError(error instanceof Error ? error.message : "Failed to load dashboard data");
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
 
     loadDashboard();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const actions = useMemo(() => [
@@ -150,39 +144,51 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-      {/* Page title */}
+      {/* Page header */}
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#2C3E50] mb-2">Admin Dashboard</h1>
-        <p className="text-gray-600 text-sm sm:text-base">Welcome back! Here's what's happening with your Trading platform.</p>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand/10">
+            <i className="bi bi-speedometer2 text-brand text-base" />
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#2C3E50] dark:text-white">Admin Dashboard</h1>
+        </div>
+        <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base ml-10">
+          Welcome back! Here's what's happening with your trading platform.
+        </p>
       </div>
+
+      {/* Loading / error banners */}
+      {isLoading && (
+        <div className="mb-5 flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/60 px-4 py-3 text-sm text-slate-500 dark:text-slate-300">
+          <svg className="animate-spin h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          Loading dashboard data…
+        </div>
+      )}
+
+      {!!loadError && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          <i className="bi bi-exclamation-circle-fill mt-0.5 shrink-0" />
+          {loadError}
+        </div>
+      )}
 
       {/* Top stats */}
       <div className="mb-6">
         <StatsGrid stats={topStats} />
       </div>
 
-      {/*Income analytic*/}
+      {/* Income analytics */}
       <div className="mb-6">
         <IncomeAnalytics stats={stats} />
       </div>
 
-      {isLoading && (
-        <div className="mb-6 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-          Loading dashboard data...
-        </div>
-      )}
-
-      {!!loadError && (
-        <div className="mb-6 rounded-md border border-red-200 bg-red-50/80 p-3 text-sm text-red-700">
-          {loadError}
-        </div>
-      )}
-
-      {/*Quick Action*/}
+      {/* Quick actions */}
       <QuickActions actions={actions} />
 
-      {/* Bottom section: chart (3/4) + activity (1/4) */}
-      
+      {/* Chart + activity */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 mt-5">
         <div className="lg:col-span-3">
           <SalesChart data={salesData} />
@@ -191,7 +197,6 @@ const Dashboard: React.FC = () => {
           <RecentActivity activities={activities} />
         </div>
       </div>
-
     </>
   );
 };

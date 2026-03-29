@@ -7,7 +7,7 @@ import { apiRequest } from "../lib/api.ts";
 type UserRow = {
   id: number;
   name: string;
-  phone: string;
+  role: string;
   email: string;
   createdAt: string;
 };
@@ -16,7 +16,7 @@ type ApiUser = {
   id?: number | string;
   full_name?: string;
   email?: string;
-  phone?: string;
+  role?: string;
   created_at?: string;
   createdAt?: string;
 };
@@ -33,6 +33,35 @@ function parseNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Role badge colours
+function roleBadgeClass(role: string): string {
+  switch (role.toLowerCase()) {
+    case "admin": return "bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-900/20 dark:text-purple-300 dark:ring-purple-500/20";
+    case "seller": return "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-500/20";
+    default: return "bg-slate-100 text-slate-600 ring-slate-500/10 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-600/20";
+  }
+}
+
+// Initials avatar colour
+function avatarColor(name: string): string {
+  const colors = [
+    "bg-blue-500", "bg-emerald-500", "bg-orange-500",
+    "bg-pink-500", "bg-violet-500", "bg-teal-500",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function getInitials(name: string): string {
+  return name.split(" ").slice(0, 2).map((n) => n[0]?.toUpperCase() ?? "").join("");
+}
+
+const selectCls =
+  "rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 " +
+  "text-slate-700 dark:text-slate-200 text-sm px-3 py-2 " +
+  "focus:outline-none focus:ring-2 focus:ring-brand/40 transition-colors";
+
 const Users: React.FC = () => {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
@@ -48,55 +77,43 @@ const Users: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-
     const loadUsers = async () => {
       try {
         setIsLoading(true);
         setLoadError("");
-
         const response = await apiRequest<ApiUsersResponse>("/api/users?limit=300");
         if (!isMounted) return;
-
         const mappedUsers: UserRow[] = (Array.isArray(response?.items) ? response.items : []).map((item) => ({
           id: parseNumber(item?.id),
           name: item?.full_name || "Unknown User",
-          phone: item?.phone || "-",
+          role: item?.role || "-",
           email: item?.email || "-",
           createdAt: item?.created_at || item?.createdAt || "",
         }));
-
         setUsers(mappedUsers);
       } catch (error) {
         if (!isMounted) return;
         setLoadError(error instanceof Error ? error.message : "Failed to load users");
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
-
     loadUsers();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const filtered = useMemo(() => {
     let rows = [...users];
     const q = search.toLowerCase().trim();
-
     if (q) {
       rows = rows.filter(
         (u) =>
           u.name.toLowerCase().includes(q) ||
           String(u.id).includes(q) ||
           u.email.toLowerCase().includes(q) ||
-          u.phone.toLowerCase().includes(q)
+          u.role.toLowerCase().includes(q)
       );
     }
-
     rows.sort((a, b) => {
       switch (sortBy) {
         case "newest": return +new Date(b.createdAt) - +new Date(a.createdAt);
@@ -106,34 +123,19 @@ const Users: React.FC = () => {
         default: return 0;
       }
     });
-
     return rows;
   }, [users, search, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
-
+  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   useEffect(() => setPage(1), [search, sortBy]);
 
-  // Remove button color (same scheme used elsewhere)
-  const removeBtn =
-    "inline-flex items-center justify-center h-8 px-3 rounded-md text-xs font-medium " +
-    "border border-[#FF004F] text-[#FF004F] bg-[#FFC5C5] " +
-    "hover:brightness-95 active:brightness-90 " +
-    "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
-
-  // Remove user from admin panel by deleting the user account.
   const handleConfirmDelete = async () => {
     if (!selectedUser) return;
-
     try {
       setIsDeleting(true);
       setDeleteError("");
-
-      await apiRequest<void>(`/api/users/${selectedUser.id}`, {
-        method: "DELETE",
-      });
-
+      await apiRequest<void>(`/api/users/${selectedUser.id}`, { method: "DELETE" });
       setUsers((prev) => prev.filter((p) => p.id !== selectedUser.id));
       setIsDeleteOpen(false);
       setSelectedUser(null);
@@ -143,161 +145,196 @@ const Users: React.FC = () => {
       setIsDeleting(false);
     }
   };
-  
-  // --- Export setup ---
+
   const columns: ExportColumn[] = [
-    { header: "User ID",       dataKey: "id" },
-    { header: "Name",          dataKey: "name" },
-    { header: "Phone Number",  dataKey: "phone" },
-    { header: "Email",         dataKey: "email" },
-    { header: "Created At",    dataKey: "createdAt" },
+    { header: "User ID", dataKey: "id" },
+    { header: "Name", dataKey: "name" },
+    { header: "Role", dataKey: "role" },
+    { header: "Email", dataKey: "email" },
+    { header: "Created At", dataKey: "createdAt" },
   ];
-
-  const rowsForExport = filtered;
-
-  const onExportPDF = () =>
-    exportTableToPDF({ title: "Users", columns, rows: rowsForExport, orientation: "l" });
-
-  const onExportDocx = () =>
-    exportTableToDocx({ title: "Users", columns, rows: rowsForExport });
+  const onExportPDF = () => exportTableToPDF({ title: "Users", columns, rows: filtered, orientation: "l" });
+  const onExportDocx = () => exportTableToDocx({ title: "Users", columns, rows: filtered });
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">User</h2>
+      {/* Page header */}
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand/10">
+            <i className="bi bi-people text-brand text-base" />
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#2C3E50] dark:text-white">Users</h1>
+        </div>
+        <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base ml-10">
+          Manage all registered users on your platform.
+        </p>
+      </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100">User Information</h5>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
+          <div>
+            <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100">User Information</h5>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{filtered.length} user{filtered.length !== 1 ? "s" : ""} found</p>
+          </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            {/* Search */}
-            <div className="relative w-full sm:w-80">
-              <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative">
+              <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name / id / phone / email"
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                placeholder="Search name, ID, role, email…"
+                className="pl-8 pr-3 py-2 w-64 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/40 transition-colors"
               />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                  <i className="bi bi-x text-sm" />
+                </button>
+              )}
             </div>
 
-            {/* Sort */}
-            <div className="relative">
-              <select
-                className="appearance-none rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-slate-100 px-3 py-2 pr-9 focus:outline-none focus:ring-2 focus:ring-brand/50"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-              >
-                <option value="newest">Sort by: Newest</option>
-                <option value="oldest">Sort by: Oldest</option>
-                <option value="name-asc">Name A → Z</option>
-                <option value="name-desc">Name Z → A</option>
-              </select>
-              <i className="bi bi-chevron-down pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            </div>
+            <select className={selectCls} value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+            </select>
 
-            {/* Export */}
             <ExportButtons onPDF={onExportPDF} onDocx={onExportDocx} variant="brand" size="md" />
           </div>
         </div>
 
+        {/* Banners */}
         {isLoading && (
-          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
-            Loading users...
+          <div className="mx-5 mt-4 flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/60 px-4 py-3 text-sm text-slate-500 dark:text-slate-300">
+            <svg className="animate-spin h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            Loading users…
           </div>
         )}
-
         {!!loadError && (
-          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+          <div className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            <i className="bi bi-exclamation-circle-fill mt-0.5 shrink-0" />
             {loadError}
           </div>
         )}
-
         {!!deleteError && (
-          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+          <div className="mx-5 mt-4 flex items-start gap-2.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            <i className="bi bi-exclamation-circle-fill mt-0.5 shrink-0" />
             {deleteError}
           </div>
         )}
 
         {/* Table */}
-        <div className="mt-4 overflow-x-auto">
+        <div className="overflow-x-auto px-5 pb-2">
           <table className="min-w-full text-sm">
             <colgroup>
-              <col style={{ width: "130px" }} />
+              <col style={{ width: "90px" }} />
               <col style={{ width: "260px" }} />
-              <col style={{ width: "200px" }} />
+              <col style={{ width: "130px" }} />
               <col />
-              <col style={{ width: "120px" }} />
+              <col style={{ width: "110px" }} />
             </colgroup>
-
             <thead>
-              <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
-                <th className="py-3 px-2 text-slate-500 font-medium">User ID</th>
-                <th className="py-3 px-2 text-slate-500 font-medium">Name</th>
-                <th className="py-3 px-2 text-slate-500 font-medium">Phone Number</th>
-                <th className="py-3 px-2 text-slate-500 font-medium">Email</th>
-                <th className="py-3 px-2 text-slate-500 font-medium text-right">Action</th>
+              <tr className="border-b border-slate-100 dark:border-gray-800">
+                <th className="py-3 px-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">ID</th>
+                <th className="py-3 px-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Name</th>
+                <th className="py-3 px-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Role</th>
+                <th className="py-3 px-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Email</th>
+                <th className="py-3 px-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Action</th>
               </tr>
             </thead>
-
-            <tbody>
+            <tbody className="divide-y divide-slate-50 dark:divide-gray-800/60">
               {visible.map((u) => (
-                <tr key={`${u.id}-${u.email}`} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                  <td className="py-3 px-2 tabular-nums">{u.id}</td>
-                  <td className="py-3 px-2"><span className="truncate block">{u.name}</span></td>
-                  <td className="py-3 px-2">{u.phone}</td>
-                  <td className="py-3 px-2"><span className="truncate block">{u.email}</span></td>
+                <tr key={`${u.id}-${u.email}`} className="group hover:bg-slate-50/60 dark:hover:bg-gray-800/30 transition-colors">
+                  <td className="py-3 px-2 tabular-nums text-xs font-mono text-slate-400 dark:text-slate-500">#{u.id}</td>
+                  <td className="py-3 px-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-semibold shrink-0 ${avatarColor(u.name)}`}>
+                        {getInitials(u.name)}
+                      </span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{u.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-2">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${roleBadgeClass(u.role)}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-slate-500 dark:text-slate-400 truncate max-w-[220px]">{u.email}</td>
                   <td className="py-3 px-2 text-right">
-                    <button className={removeBtn} onClick={() => {
-                      setSelectedUser(u);
-                      setIsDeleteOpen(true);
-                    }}>
+                    <button
+                      onClick={() => { setSelectedUser(u); setIsDeleteOpen(true); }}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border border-red-200 text-red-600 bg-red-50/50 hover:bg-red-100 dark:border-red-800 dark:text-red-300 dark:bg-transparent dark:hover:bg-red-950/30 transition-colors"
+                    >
+                      <i className="bi bi-person-x text-xs" />
                       Remove
                     </button>
                   </td>
                 </tr>
               ))}
+
+              {visible.length === 0 && !isLoading && (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center">
+                    <i className="bi bi-people text-3xl text-slate-200 dark:text-slate-700 block mb-2" />
+                    <p className="text-sm text-slate-400 dark:text-slate-500">No users found</p>
+                    {search && (
+                      <button onClick={() => setSearch("")} className="mt-2 text-xs text-brand hover:underline">
+                        Clear search
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs text-slate-500">
-            Showing <span className="font-medium">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> –{" "}
-            <span className="font-medium">{Math.min(page * pageSize, filtered.length)}</span> of{" "}
-            <span className="font-medium">{filtered.length}</span>
-          </div>
-          <div className="inline-flex items-center gap-2">
+        <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Showing{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}
+            </span>{" "}–{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              {Math.min(page * pageSize, filtered.length)}
+            </span>{" "}of{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{filtered.length}</span>
+          </p>
+          <div className="inline-flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:pointer-events-none hover:bg-slate-50 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors"
             >
-              Prev
+              ← Prev
             </button>
-            <span className="text-sm text-slate-600 dark:text-slate-300">
-              Page <span className="font-semibold">{page}</span> / {totalPages}
+            <span className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300">
+              <span className="font-semibold">{page}</span> / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:pointer-events-none hover:bg-slate-50 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-50 dark:hover:bg-gray-800 transition-colors"
             >
-              Next
+              Next →
             </button>
           </div>
         </div>
       </div>
+
       <DeleteProductModal
         open={isDeleteOpen}
         user={selectedUser}
         isLoading={isDeleting}
-        onClose={() => {
-          setIsDeleteOpen(false);
-          setSelectedUser(null);
-        }}
+        onClose={() => { if (isDeleting) return; setIsDeleteOpen(false); setSelectedUser(null); }}
         onConfirm={handleConfirmDelete}
       />
     </>
