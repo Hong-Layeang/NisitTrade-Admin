@@ -66,17 +66,10 @@ async function fetchFullMessage(messageId) {
   });
 }
 
-function userRoom(userId) {
-  return `user:${userId}`;
-}
-
 export function initChatSocket(io) {
   io.on('connection', async (socket) => {
     const userId = socket.data?.user?.id;
     if (!userId) return;
-
-    // Join personal user room for direct notifications
-    socket.join(userRoom(userId));
 
     // Auto-join rooms for all conversations the user participates in
     try {
@@ -120,23 +113,8 @@ export function initChatSocket(io) {
         });
 
         const full = await fetchFullMessage(msg.id);
-        const messageJson = full.toJSON();
-        io.to(roomName(conversationId)).emit('chat:receive', messageJson);
-
-        // Notify other participants via user rooms
-        const participants = await ConversationParticipant.findAll({
-          where: { conversation_id: conversationId },
-          attributes: ['user_id'],
-          raw: true,
-        });
-        const recipientIds = participants
-          .map((p) => p.user_id)
-          .filter((uid) => uid !== userId);
-        for (const uid of recipientIds) {
-          io.to(userRoom(uid)).emit('chat:notify', messageJson);
-        }
-
-        if (typeof ack === 'function') ack({ ok: true, message: messageJson });
+        io.to(roomName(conversationId)).emit('chat:receive', full.toJSON());
+        if (typeof ack === 'function') ack({ ok: true, message: full.toJSON() });
       } catch (err) {
         console.error('[ChatSocket] chat:send error:', err.message);
         if (typeof ack === 'function') ack({ ok: false, error: err.message });
@@ -310,15 +288,4 @@ export function broadcastMessageDelete(io, conversationId, messageIds, options =
 export function broadcastNewMessage(io, conversationId, messageJson) {
   if (!io) return;
   io.to(roomName(conversationId)).emit('chat:receive', messageJson);
-}
-
-/**
- * Notify specific users about a new message via their personal user room.
- * Used to ensure badge updates even when users haven't joined the conversation room.
- */
-export function notifyUserNewMessage(io, recipientUserIds, messageJson) {
-  if (!io || !Array.isArray(recipientUserIds)) return;
-  for (const uid of recipientUserIds) {
-    io.to(userRoom(uid)).emit('chat:notify', messageJson);
-  }
 }

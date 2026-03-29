@@ -22,7 +22,12 @@ router.post('/admin/login', adminLoginController);
 
 router.post('/register', registerController);
 router.post('/logout', authMiddleware, (req, res) => {
-	return res.json({ success: true, msg: 'Logged out' });
+	return res.json({
+		success: true,
+		msg: 'Logged out',
+		stateless: true,
+		requiresClientTokenClear: true,
+	});
 });
 router.get('/me', authMiddleware, currentUserController);
 

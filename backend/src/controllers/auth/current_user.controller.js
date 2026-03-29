@@ -28,14 +28,16 @@ export default async function currentUserController(req, res) {
     const [followerCount, followingCount, ratingSummaryRaw] = await Promise.all([
       UserFollow.count({ where: { following_id: userId } }),
       UserFollow.count({ where: { follower_id: userId } }),
-      Rating.findOne({
-        where: { seller_id: userId },
-        attributes: [
-          [fn('COUNT', col('id')), 'rating_count'],
-          [fn('AVG', col('rating')), 'avg_rating'],
-        ],
-        raw: true,
-      }),
+      Rating
+        ? Rating.findOne({
+            where: { seller_id: userId },
+            attributes: [
+              [fn('COUNT', col('id')), 'rating_count'],
+              [fn('AVG', col('rating')), 'avg_rating'],
+            ],
+            raw: true,
+          })
+        : Promise.resolve(null),
     ]);
 
     const ratingCount = Number.parseInt(

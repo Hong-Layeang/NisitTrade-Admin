@@ -44,14 +44,16 @@ export default async function getUserController(req, res) {
       requesterId && !isOwner
         ? UserFollow.count({ where: { follower_id: requesterId, following_id: targetUserId } })
         : Promise.resolve(0),
-      Rating.findOne({
-        where: { seller_id: targetUserId },
-        attributes: [
-          [fn('COUNT', col('id')), 'rating_count'],
-          [fn('AVG', col('rating')), 'avg_rating'],
-        ],
-        raw: true,
-      }),
+      Rating
+        ? Rating.findOne({
+            where: { seller_id: targetUserId },
+            attributes: [
+              [fn('COUNT', col('id')), 'rating_count'],
+              [fn('AVG', col('rating')), 'avg_rating'],
+            ],
+            raw: true,
+          })
+        : Promise.resolve(null),
     ]);
 
     const ratingCount = Number.parseInt(

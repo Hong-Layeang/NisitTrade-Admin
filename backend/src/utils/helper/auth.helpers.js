@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const PASSWORD_HASH_COST = 12;
-const JWT_EXPIRY = '60d';
+const DEFAULT_JWT_EXPIRY = '1d';
 
 export function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -40,8 +40,9 @@ export async function comparePassword(password, hash) {
 
 export function generateToken(payload, options = {}) {
   const secret = getJwtSecret();
+  const jwtExpiry = process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRY;
   return jwt.sign(payload, secret, {
-    expiresIn: JWT_EXPIRY,
+    expiresIn: jwtExpiry,
     ...options,
   });
 }

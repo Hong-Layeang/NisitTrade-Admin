@@ -10,6 +10,7 @@ export default async function listProductsController(req, res) {
       category_id, 
       status, 
       search, 
+      owner_role,
       limit = 50, 
       offset = 0 
     } = req.query;
@@ -30,7 +31,12 @@ export default async function listProductsController(req, res) {
       }
       where.status = status;
     } else {
-      where.status = { [Op.notIn]: ['hidden', 'sold'] };
+      // Keep sold items visible for admin management views (`owner_role=admin|user`)
+      // so status updates do not make products disappear from dashboard pages.
+      const isAdminManagementListing = requesterRole === 'admin' && ['admin', 'user'].includes(owner_role);
+      where.status = isAdminManagementListing
+        ? { [Op.ne]: 'hidden' }
+        : { [Op.notIn]: ['hidden', 'sold'] };
     }
 
     // Search in title and description
@@ -62,10 +68,7 @@ export default async function listProductsController(req, res) {
     const products = await Product.findAll({
       where,
       include: [
-        {
-          model: User,
-          attributes: ['id', 'full_name', 'email', 'profile_image', 'provider', 'role', 'university_id', 'created_at', 'updated_at']
-        },
+        userInclude,
         {
           model: Category,
           attributes: ['id', 'name', 'created_at', 'updated_at']

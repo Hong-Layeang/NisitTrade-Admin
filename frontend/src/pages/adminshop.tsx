@@ -1,39 +1,93 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
-import { ExportButtons } from "../components/ui/exportButton.tsx"; 
+import { ExportButtons } from "../components/ui/exportButton.tsx";
 import AddProductModal, { AddProductPayload } from "../components/modals/addProductModal.tsx";
+import EditProductModal, { Product } from "../components/modals/editProductModal.tsx";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
+import { apiRequest } from "../lib/api.ts";
 
-// ---- Types & data ----
-type Category = "Electronic" | "Clothing" | "Accessory";
+// ---- Types ----
+type Category = string;
 type Status = "Active" | "Sold";
-
-type Product = {
-  id: number;
-  title: string;
-  category: Category;
-  price: number;
-  status: Status;
-  createdAt: string;
-};
-
-const initialData: Product[] = [
-  { id: 100000, title: "Mouse",     category: "Electronic", price: 5,   status: "Active", createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",     category: "Electronic", price: 100, status: "Sold",   createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",    category: "Electronic", price: 250, status: "Active", createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",  category: "Electronic", price: 30,  status: "Active", createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",     category: "Clothing",   price: 15,  status: "Active", createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",     category: "Clothing",   price: 50,  status: "Sold",   createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",    category: "Clothing",   price: 25,  status: "Active", createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",    category: "Clothing",   price: 75,  status: "Active", createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",      category: "Accessory",  price: 1,   status: "Sold",   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",    category: "Electronic", price: 10,  status: "Active", createdAt: "2024-12-10" },
-];
-
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc";
 
+type ApiCategory = {
+  id?: number | string;
+  name?: string;
+};
+
+type ApiProduct = {
+  id?: number | string;
+  title?: string;
+  price?: number | string;
+  status?: string;
+  created_at?: string;
+  createdAt?: string;
+  User?: {
+    role?: string;
+  };
+  Category?: {
+    id?: number | string;
+    name?: string;
+  };
+  ProductImages?: Array<{
+    id?: number;
+    image_url?: string;
+  }>;
+};
+
+type PresignedUrlResponse = {
+  s3Key?: string;
+  presignedUrl?: string;
+  expiresIn?: number;
+};
+
+type ShopProduct = Product & {
+  ownerRole?: string;
+};
+
+const FALLBACK_CATEGORIES: Category[] = ["Electronic", "Clothing", "Accessory"];
+
+function formatProductId(id: number, ownerRole?: string): string {
+  const prefix = ownerRole === "admin" ? "AP" : "UP";
+  return `${prefix}${id}`;
+}
+
+function parseNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function mapBackendStatusToUi(status: string | undefined): Status {
+  return status === "sold" ? "Sold" : "Active";
+}
+
+function mapUiStatusToBackend(status: Status): "sold" | "available" {
+  return status === "Sold" ? "sold" : "available";
+}
+
+async function toRenderableImageUrl(imageUrl?: string): Promise<string | undefined> {
+  if (!imageUrl) return undefined;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+
+  try {
+    const response = await apiRequest<PresignedUrlResponse>("/api/presigned-url", {
+      method: "POST",
+      body: JSON.stringify({ s3Key: imageUrl }),
+    });
+
+    return response?.presignedUrl || imageUrl;
+  } catch {
+    return imageUrl;
+  }
+}
+
 const AdminShop: React.FC = () => {
-  // IMPORTANT: move the dataset to state, so we can append new products
-  const [rows, setRows] = useState<Product[]>(initialData);
+  const [rows, setRows] = useState<ShopProduct[]>([]);
+  const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
+  const [categoryIdByName, setCategoryIdByName] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
@@ -42,10 +96,73 @@ const AdminShop: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  // Add product modal state
+  // Modal states
   const [openAdd, setOpenAdd] = useState(false);
+  const [editTarget, setEditTarget] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  // Filtering & sorting based on local state rows
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const [categoriesResponse, productsResponse] = await Promise.all([
+          apiRequest<ApiCategory[]>("/api/categories"),
+          apiRequest<ApiProduct[]>("/api/products?owner_role=admin&limit=300"),
+        ]);
+
+        if (!isMounted) return;
+
+        const categoryRecords = Array.isArray(categoriesResponse) ? categoriesResponse : [];
+        const categoryMap: Record<string, number> = {};
+        const categoryNames = categoryRecords
+          .map((item) => {
+            const name = (item?.name || "").trim();
+            const id = parseNumber(item?.id, 0);
+            if (name && id > 0) {
+              categoryMap[name] = id;
+            }
+            return name;
+          })
+          .filter(Boolean);
+
+        const mappedProducts: ShopProduct[] = (Array.isArray(productsResponse) ? productsResponse : [])
+          .filter((item) => !item?.User?.role || item.User.role === "admin")
+          .map((item) => ({
+            id: parseNumber(item.id),
+            title: item.title || "Untitled",
+            category: item.Category?.name || "Unknown",
+            price: parseNumber(item.price),
+            status: mapBackendStatusToUi(item.status),
+            createdAt: item.created_at || item.createdAt || "",
+            ProductImages: item.ProductImages || [],
+            ownerRole: item.User?.role,
+          }));
+
+        setCategoryIdByName(categoryMap);
+        setCategories(categoryNames.length > 0 ? categoryNames : FALLBACK_CATEGORIES);
+        setRows(mappedProducts);
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load admin products");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // ---- Filtering & sorting ----
   const filtered = useMemo(() => {
     let data = [...rows];
     const q = search.toLowerCase().trim();
@@ -56,12 +173,12 @@ const AdminShop: React.FC = () => {
 
     data.sort((a, b) => {
       switch (sortBy) {
-        case "newest":     return +new Date(b.createdAt) - +new Date(a.createdAt);
-        case "oldest":     return +new Date(a.createdAt) - +new Date(b.createdAt);
-        case "price-asc":  return a.price - b.price;
+        case "newest": return b.id - a.id;
+        case "oldest": return a.id - b.id;
+        case "price-asc": return a.price - b.price;
         case "price-desc": return b.price - a.price;
-        case "title-asc":  return a.title.localeCompare(b.title);
-        default:           return 0;
+        case "title-asc": return a.title.localeCompare(b.title);
+        default: return 0;
       }
     });
     return data;
@@ -72,14 +189,14 @@ const AdminShop: React.FC = () => {
 
   useEffect(() => setPage(1), [search, category, status, sortBy]);
 
-  // Export setup
+  // ---- Export ----
   const columns: ExportColumn[] = [
-    { header: "Product ID",    dataKey: "id" },
+    { header: "Product ID", dataKey: "id" },
     { header: "Product Title", dataKey: "title" },
-    { header: "Category",      dataKey: "category" },
-    { header: "Price",         dataKey: "priceFormatted" },
-    { header: "Status",        dataKey: "status" },
-    { header: "Created At",    dataKey: "createdAt" },
+    { header: "Category", dataKey: "category" },
+    { header: "Price", dataKey: "priceFormatted" },
+    { header: "Status", dataKey: "status" },
+    { header: "Created At", dataKey: "createdAt" },
   ];
 
   const rowsForExport = filtered.map((p) => ({
@@ -91,32 +208,126 @@ const AdminShop: React.FC = () => {
     createdAt: p.createdAt,
   }));
 
-  const onExportPDF = () =>
-    exportTableToPDF({ title: "Admin Shop", columns, rows: rowsForExport, orientation: "l" });
+  const onExportPDF = () => exportTableToPDF({ title: "Admin Shop", columns, rows: rowsForExport, orientation: "l" });
+  const onExportDocx = () => exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
 
-  const onExportDocx = () =>
-    exportTableToDocx({ title: "Admin Shop", columns, rows: rowsForExport });
+  // ---- Add ----
+  const handleAddProduct = async (data: AddProductPayload) => {
+    const categoryId = categoryIdByName[data.category];
+    if (!categoryId) {
+      setLoadError("Selected category is invalid");
+      return;
+    }
 
-  // ---- Add Product
-  const handleAddProduct = (data: AddProductPayload) => {
-    // Simple new ID strategy: last id + 1 (or timestamp)
-    const nextId = rows.length ? Math.max(...rows.map((r) => r.id)) + 1 : 100000;
-    const today = new Date();
-    const createdAt = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-      today.getDate()
-    ).padStart(2, "0")}`;
+    try {
+      const imageUrls = data.s3Key ? [data.s3Key] : [];
 
-    const newRow: Product = {
-      id: nextId,
-      title: data.title,
-      category: data.category,
-      price: data.price,
-      status: "Active",
-      createdAt,
-    };
+      const created = await apiRequest<ApiProduct>("/api/products", {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description || "",
+          price: data.price,
+          category_id: categoryId,
+          image_urls: imageUrls,
+        }),
+      });
 
-    setRows((prev) => [newRow, ...prev]); // prepend for visibility
-    setOpenAdd(false);
+      const createdImages = Array.isArray(created?.ProductImages) ? created.ProductImages : [];
+      const sourceImages =
+        createdImages.length > 0
+          ? createdImages
+          : imageUrls.map((key, index) => ({ id: index + 1, image_url: key }));
+
+      const optimisticImages = await Promise.all(
+        sourceImages.map(async (img, index) => ({
+          id: img.id ?? index + 1,
+          image_url: await toRenderableImageUrl(img.image_url),
+        }))
+      );
+
+      const newRow: ShopProduct = {
+        id: parseNumber(created?.id),
+        title: created?.title || data.title,
+        category: created?.Category?.name || data.category,
+        price: parseNumber(created?.price, data.price),
+        status: mapBackendStatusToUi(created?.status),
+        createdAt: created?.created_at || created?.createdAt || new Date().toISOString(),
+        ProductImages: optimisticImages,
+        ownerRole: "admin",
+      };
+
+      setRows((prev) => [newRow, ...prev]);
+      setOpenAdd(false);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to add product");
+    }
+  };
+
+  // ---- Edit ----
+  const handleEditProduct = async (updated: Product) => {
+    const categoryId = categoryIdByName[updated.category];
+    if (!categoryId) {
+      setLoadError("Selected category is invalid");
+      return;
+    }
+
+    try {
+      const saved = await apiRequest<ApiProduct>(`/api/products/${updated.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: updated.title,
+          price: updated.price,
+          category_id: categoryId,
+          status: mapUiStatusToBackend(updated.status),
+        }),
+      });
+
+      const savedImages = Array.isArray(saved?.ProductImages)
+        ? saved.ProductImages
+        : updated.ProductImages || [];
+
+      const nextImages = await Promise.all(
+        savedImages.map(async (img, index) => ({
+          id: img.id ?? index + 1,
+          image_url: await toRenderableImageUrl(img.image_url),
+        }))
+      );
+
+      const nextRow: ShopProduct = {
+        id: parseNumber(saved?.id, updated.id),
+        title: saved?.title || updated.title,
+        category: saved?.Category?.name || updated.category,
+        price: parseNumber(saved?.price, updated.price),
+        status: mapBackendStatusToUi(saved?.status),
+        createdAt: saved?.created_at || saved?.createdAt || updated.createdAt,
+        ProductImages: nextImages,
+        ownerRole: saved?.User?.role,
+      };
+
+      setRows((prev) => prev.map((r) => (r.id === updated.id ? nextRow : r)));
+      setEditTarget(null);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to update product");
+    }
+  };
+
+  // ---- Delete ----
+  const handleDeleteProduct = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      await apiRequest<void>(`/api/products/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      setRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Failed to delete product");
+    }
   };
 
   return (
@@ -126,6 +337,7 @@ const AdminShop: React.FC = () => {
 
       {/* Card */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+
         {/* Toolbar */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100">All Products</h5>
@@ -149,9 +361,9 @@ const AdminShop: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categories.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
             </select>
 
             {/* Status */}
@@ -178,10 +390,10 @@ const AdminShop: React.FC = () => {
               <option value="title-asc">Title A → Z</option>
             </select>
 
-            {/* Export (menu-style) */}
+            {/* Export */}
             <ExportButtons onPDF={onExportPDF} onDocx={onExportDocx} variant="brand" size="md" />
 
-            {/* Add Product button (brand style to match mock) */}
+            {/* Add Product */}
             <button
               type="button"
               onClick={() => setOpenAdd(true)}
@@ -194,11 +406,24 @@ const AdminShop: React.FC = () => {
           </div>
         </div>
 
+        {isLoading && (
+          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
+            Loading admin products...
+          </div>
+        )}
+
+        {!!loadError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
+
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <colgroup>
-              <col style={{ width: "140px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "80px" }} />
               <col style={{ width: "360px" }} />
               <col style={{ width: "160px" }} />
               <col style={{ width: "110px" }} />
@@ -209,6 +434,7 @@ const AdminShop: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
                 <th className="py-3 px-2 text-slate-500 font-medium">Product ID</th>
+                <th className="py-3 px-2 text-slate-500 font-medium">Image</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Product Title</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Category</th>
                 <th className="py-3 px-2 text-slate-500 font-medium text-right">Price</th>
@@ -223,10 +449,26 @@ const AdminShop: React.FC = () => {
                 const pill = isActive
                   ? "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/20 dark:text-green-300"
                   : "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-300";
+                const primaryImageUrl = p.ProductImages?.[0]?.image_url || "";
+                const hasRenderableImage = /^https?:\/\//i.test(primaryImageUrl);
+                const displayId = formatProductId(p.id, p.ownerRole);
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                    <td className="py-3 px-2">{p.id}</td>
+                    <td className="py-3 px-2" title={`Database ID: ${p.id}`}>{displayId}</td>
+                    <td className="py-3 px-2">
+                      {hasRenderableImage ? (
+                        <img
+                          src={primaryImageUrl}
+                          alt={p.title}
+                          className="h-16 w-16 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-md border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                          <i className="bi bi-image text-gray-400" />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-2">{p.title}</td>
                     <td className="py-3 px-2 text-slate-500">{p.category}</td>
                     <td className="py-3 px-2 text-right">
@@ -239,14 +481,19 @@ const AdminShop: React.FC = () => {
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center justify-center gap-2">
+                        {/* Edit */}
                         <button
+                          onClick={() => setEditTarget(p)}
                           className="w-7 h-7 grid place-items-center rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/40"
                           aria-label="Edit"
                           title="Edit"
                         >
                           <i className="bi bi-pencil-square" />
                         </button>
+
+                        {/* Delete */}
                         <button
+                          onClick={() => setDeleteTarget(p)}
                           className="w-7 h-7 grid place-items-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
                           aria-label="Delete"
                           title="Delete"
@@ -258,6 +505,14 @@ const AdminShop: React.FC = () => {
                   </tr>
                 );
               })}
+
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-400">
+                    No products found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -265,7 +520,8 @@ const AdminShop: React.FC = () => {
         {/* Pagination */}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-500">
-            Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> –{" "}
+            Showing{" "}
+            <span className="font-medium">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> –{" "}
             <span className="font-medium">{Math.min(page * pageSize, filtered.length)}</span> of{" "}
             <span className="font-medium">{filtered.length}</span>
           </div>
@@ -291,11 +547,29 @@ const AdminShop: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Add Product Modal */}
       <AddProductModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}
+        categories={categories}
         onSubmit={handleAddProduct}
+      />
+
+      {/* Edit Product Modal */}
+      <EditProductModal
+        open={!!editTarget}
+        product={editTarget}
+        categories={categories}
+        onClose={() => setEditTarget(null)}
+        onSubmit={handleEditProduct}
+      />
+
+      {/* Delete Product Modal */}
+      <DeleteProductModal
+        open={!!deleteTarget}
+        product={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteProduct}
       />
     </>
   );

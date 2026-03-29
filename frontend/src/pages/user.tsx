@@ -1,6 +1,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
+import { apiRequest } from "../lib/api.ts";
+
 type UserRow = {
   id: number;
   name: string;
@@ -9,29 +12,79 @@ type UserRow = {
   createdAt: string;
 };
 
-const initialUsers: UserRow[] = [
-  { id: 10000, name: "Jane Cooper",     phone: "(225) 555-0118", email: "jane@microsoft.com",         createdAt: "2024-11-01" },
-  { id: 10001, name: "Floyd Miles",     phone: "(205) 555-0100", email: "floyd@yahoo.com",             createdAt: "2024-11-02" },
-  { id: 10002, name: "Ronald Richards", phone: "(302) 555-0107", email: "ronald@adobe.com",            createdAt: "2024-11-03" },
-  { id: 10003, name: "Marvin McKinney", phone: "(252) 555-0126", email: "marvin@tesla.com",            createdAt: "2024-11-04" },
-  { id: 10004, name: "Jerome Bell",     phone: "(629) 555-0129", email: "jerome@google.com",           createdAt: "2024-11-05" },
-  { id: 10005, name: "Kathryn Murphy",  phone: "(406) 555-0120", email: "kathryn@microsoft.com",       createdAt: "2024-11-06" },
-  { id: 10006, name: "Jacob Jones",     phone: "(208) 555-0112", email: "jacob@yahoo.com",             createdAt: "2024-11-07" },
-  { id: 10007, name: "Kristin Watson",  phone: "(704) 555-0127", email: "kristin@facebook.com",        createdAt: "2024-11-08" },
-  { id: 10008, name: "Jennie Kim",      phone: "(704) 555-0123", email: "jennie@gmail.com",            createdAt: "2024-11-09" },
-  { id: 10009, name: "Rose Park",       phone: "(704) 555-0122", email: "rosepark@gmail.com",          createdAt: "2024-11-10" },
-];
+type ApiUser = {
+  id?: number | string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  created_at?: string;
+  createdAt?: string;
+};
+
+type ApiUsersResponse = {
+  total?: number;
+  items?: ApiUser[];
+};
 
 type SortBy = "newest" | "oldest" | "name-asc" | "name-desc";
+
+function parseNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 const Users: React.FC = () => {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [page, setPage] = useState(1);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const pageSize = 10;
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUsers = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const response = await apiRequest<ApiUsersResponse>("/api/users?limit=300");
+        if (!isMounted) return;
+
+        const mappedUsers: UserRow[] = (Array.isArray(response?.items) ? response.items : []).map((item) => ({
+          id: parseNumber(item?.id),
+          name: item?.full_name || "Unknown User",
+          phone: item?.phone || "-",
+          email: item?.email || "-",
+          createdAt: item?.created_at || item?.createdAt || "",
+        }));
+
+        setUsers(mappedUsers);
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load users");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filtered = useMemo(() => {
-    let rows = [...initialUsers];
+    let rows = [...users];
     const q = search.toLowerCase().trim();
 
     if (q) {
@@ -55,7 +108,7 @@ const Users: React.FC = () => {
     });
 
     return rows;
-  }, [search, sortBy]);
+  }, [users, search, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -69,6 +122,28 @@ const Users: React.FC = () => {
     "hover:brightness-95 active:brightness-90 " +
     "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
 
+  // Remove user from admin panel by deleting the user account.
+  const handleConfirmDelete = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setIsDeleting(true);
+      setDeleteError("");
+
+      await apiRequest<void>(`/api/users/${selectedUser.id}`, {
+        method: "DELETE",
+      });
+
+      setUsers((prev) => prev.filter((p) => p.id !== selectedUser.id));
+      setIsDeleteOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to remove user");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
   // --- Export setup ---
   const columns: ExportColumn[] = [
     { header: "User ID",       dataKey: "id" },
@@ -127,6 +202,24 @@ const Users: React.FC = () => {
           </div>
         </div>
 
+        {isLoading && (
+          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
+            Loading users...
+          </div>
+        )}
+
+        {!!loadError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
+
+        {!!deleteError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {deleteError}
+          </div>
+        )}
+
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -156,7 +249,10 @@ const Users: React.FC = () => {
                   <td className="py-3 px-2">{u.phone}</td>
                   <td className="py-3 px-2"><span className="truncate block">{u.email}</span></td>
                   <td className="py-3 px-2 text-right">
-                    <button className={removeBtn} onClick={() => alert(`Remove user ${u.id}`)}>
+                    <button className={removeBtn} onClick={() => {
+                      setSelectedUser(u);
+                      setIsDeleteOpen(true);
+                    }}>
                       Remove
                     </button>
                   </td>
@@ -169,7 +265,7 @@ const Users: React.FC = () => {
         {/* Pagination */}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-500">
-            Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> –{" "}
+            Showing <span className="font-medium">{filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}</span> –{" "}
             <span className="font-medium">{Math.min(page * pageSize, filtered.length)}</span> of{" "}
             <span className="font-medium">{filtered.length}</span>
           </div>
@@ -194,6 +290,16 @@ const Users: React.FC = () => {
           </div>
         </div>
       </div>
+      <DeleteProductModal
+        open={isDeleteOpen}
+        user={selectedUser}
+        isLoading={isDeleting}
+        onClose={() => {
+          setIsDeleteOpen(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 };

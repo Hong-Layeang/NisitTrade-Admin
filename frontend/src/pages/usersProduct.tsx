@@ -1,7 +1,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ExportButtons } from "../components/ui/exportButton.tsx";
 import { exportTableToPDF, exportTableToDocx, type ExportColumn } from "../lib/exporters.ts";
-type Category = "Electronic" | "Clothing" | "Accessory";
+import DeleteProductModal from "../components/modals/deleteProductModal.tsx";
+import { apiRequest } from "../lib/api.ts";
+
+type Category = string;
+
+type ProductImage = {
+  id?: number;
+  image_url?: string;
+};
+
 type Product = {
   id: number;
   title: string;
@@ -10,22 +19,51 @@ type Product = {
   price: number;
   reported?: boolean;
   createdAt: string;
+  ProductImages?: ProductImage[];
 };
 
-const initialData: Product[] = [
-  { id: 100000, title: "shirt",   userId: 10000, category: "Clothing",  price: 60,  reported: true,  createdAt: "2024-12-01" },
-  { id: 100001, title: "Phone",   userId: 10001, category: "Electronic", price: 100, createdAt: "2024-12-02" },
-  { id: 100002, title: "Laptop",  userId: 10002, category: "Electronic", price: 250, createdAt: "2024-12-03" },
-  { id: 100003, title: "Keyboard",userId: 10003, category: "Electronic", price: 30,  createdAt: "2024-12-04" },
-  { id: 100004, title: "Shirt",   userId: 10004, category: "Clothing",  price: 35.5,createdAt: "2024-12-05" },
-  { id: 100005, title: "Shoes",   userId: 10005, category: "Clothing",  price: 10,  createdAt: "2024-12-06" },
-  { id: 100006, title: "Hoodie",  userId: 10006, category: "Clothing",  price: 7.75,createdAt: "2024-12-07" },
-  { id: 100007, title: "Jacket",  userId: 10007, category: "Clothing",  price: 7.75,createdAt: "2024-12-08" },
-  { id: 100008, title: "Ring",    userId: 10008, category: "Accessory", price: 1,   createdAt: "2024-12-09" },
-  { id: 100009, title: "Airpod",  userId: 10009, category: "Electronic", price: 10,  createdAt: "2024-12-10" },
-];
+type ApiProduct = {
+  id?: number | string;
+  title?: string;
+  user_id?: number | string;
+  price?: number | string;
+  created_at?: string;
+  createdAt?: string;
+  Category?: {
+    name?: string;
+  };
+  User?: {
+    id?: number | string;
+    role?: string;
+  };
+  Reports?: unknown[];
+  ProductImages?: Array<{
+    id?: number;
+    image_url?: string;
+  }>;
+};
+
+type ApiReportItem = {
+  id?: number | string;
+  status?: "open" | "reviewing" | "closed" | string;
+  reportable_id?: number | string;
+};
+
+type ApiReportListResponse = {
+  total?: number;
+  items?: ApiReportItem[];
+};
+
+type ApiCategory = {
+  id?: number | string;
+  name?: string;
+};
 
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
+
+function formatUserProductId(id: number): string {
+  return `UP${id}`;
+}
 
 const UsersProduct: React.FC = () => {
   const [search, setSearch] = useState("");
@@ -33,11 +71,96 @@ const UsersProduct: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [reportedOnly, setReportedOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const pageSize = 10;
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const parseNumber = (value: unknown, fallback = 0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const categoriesResponse = await apiRequest<ApiCategory[]>("/api/categories");
+        const productsResponse = await apiRequest<ApiProduct[]>("/api/products?owner_role=user&limit=200");
+
+        // Reports endpoint is admin-only; if it fails, keep rendering products with fallback flags.
+        let reportItems: ApiReportItem[] = [];
+        try {
+          const reportsResponse = await apiRequest<ApiReportListResponse>("/api/reports?limit=500");
+          reportItems = Array.isArray(reportsResponse?.items) ? reportsResponse.items : [];
+        } catch {
+          reportItems = [];
+        }
+
+        const reportedProductIds = new Set(
+          reportItems
+            .filter((item) => item.status !== "closed")
+            .map((item) => parseNumber(item.reportable_id))
+            .filter((id) => id > 0)
+        );
+
+        if (!isMounted) return;
+
+        const categoryNames = (Array.isArray(categoriesResponse) ? categoriesResponse : [])
+          .map((item) => (item?.name || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+
+        setCategories(categoryNames);
+
+        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : [])
+          .filter((item) => !item?.User?.role || item.User.role === "user")
+          .map((item) => ({
+            id: parseNumber(item.id),
+            title: item.title || "Untitled",
+            userId: parseNumber(item.user_id ?? item.User?.id),
+            category: item.Category?.name || "Unknown",
+            price: parseNumber(item.price),
+            reported: reportedProductIds.has(parseNumber(item.id)),
+            createdAt: item.created_at || item.createdAt || "",
+            ProductImages: item.ProductImages || [],
+          }));
+
+        setProducts(mappedProducts);
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load user products");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const categoryOptions = useMemo(
+    () => [...new Set([...categories, ...products.map((p) => p.category).filter(Boolean)])].sort(),
+    [categories, products]
+  );
+
   const filtered = useMemo(() => {
-    let rows = [...initialData];
+    let rows = [...products];
     const q = search.toLowerCase().trim();
 
     if (q) {
@@ -66,7 +189,7 @@ const UsersProduct: React.FC = () => {
     });
 
     return rows;
-  }, [search, category, sortBy, reportedOnly]);
+  }, [products, search, category, sortBy, reportedOnly]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible    = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -79,6 +202,27 @@ const UsersProduct: React.FC = () => {
     "border border-[#FF004F] text-[#FF004F] bg-[#FFC5C5] " +
     "hover:brightness-95 active:brightness-90 " +
     "focus:outline-none focus:ring-2 focus:ring-[#FF004F]/40";
+  //handle confirm delete
+  const handleConfirmDelete = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      setIsDeleting(true);
+      setDeleteError("");
+
+      await apiRequest<void>(`/api/products/${selectedProduct.id}`, {
+        method: "DELETE",
+      });
+
+      setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id));
+      setIsDeleteOpen(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // --- Export setup ---
   const columns: ExportColumn[] = [
@@ -135,9 +279,11 @@ const UsersProduct: React.FC = () => {
               onChange={(e) => setCategory(e.target.value as any)}
             >
               <option value="All">Category</option>
-              <option value="Electronic">Electronic</option>
-              <option value="Clothing">Clothing</option>
-              <option value="Accessory">Accessory</option>
+              {categoryOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
 
             {/* Sort */}
@@ -170,22 +316,41 @@ const UsersProduct: React.FC = () => {
           </div>
         </div>
 
+        {isLoading && (
+          <div className="mt-4 rounded-md border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/40 p-3 text-sm text-slate-500 dark:text-slate-300">
+            Loading user products...
+          </div>
+        )}
+
+        {!!loadError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
+
+        {!!deleteError && (
+          <div className="mt-4 rounded-md border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {deleteError}
+          </div>
+        )}
+
         {/* Table */}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <colgroup>
-              <col style={{ width: "140px" }} />
-              <col style={{ width: "360px" }} />
-              <col style={{ width: "130px" }} />
-              <col style={{ width: "160px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "80px" }} />
+              <col style={{ width: "280px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "120px" }} />
+              <col style={{ width: "100px" }} />
               <col style={{ width: "110px" }} />
-              <col style={{ width: "120px" }} />
-              <col style={{ width: "120px" }} />
             </colgroup>
 
             <thead>
               <tr className="border-b border-slate-200 dark:border-gray-800 text-left">
                 <th className="py-3 px-2 text-slate-500 font-medium">Product ID</th>
+                <th className="py-3 px-2 text-slate-500 font-medium">Image</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Product Title</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">User ID</th>
                 <th className="py-3 px-2 text-slate-500 font-medium">Category</th>
@@ -199,9 +364,23 @@ const UsersProduct: React.FC = () => {
               {visible.map((p) => {
                 const redTxt = p.reported ? "text-red-600" : "";
                 const redPrice = p.reported ? "text-red-600" : "text-slate-900 dark:text-slate-100";
+                const displayProductId = formatUserProductId(p.id);
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                    <td className={`py-3 px-2 tabular-nums ${redTxt}`}>{p.id}</td>
+                    <td className={`py-3 px-2 tabular-nums ${redTxt}`} title={`Database ID: ${p.id}`}>{displayProductId}</td>
+                    <td className="py-3 px-2">
+                      {p.ProductImages && p.ProductImages.length > 0 ? (
+                        <img
+                          src={p.ProductImages[0].image_url}
+                          alt={p.title}
+                          className="h-12 w-12 object-cover rounded border border-gray-200 dark:border-gray-700"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                          <i className="bi bi-image text-gray-400 text-xs" />
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-2">
                       <span className={`truncate block ${redTxt}`}>{p.title}</span>
                     </td>
@@ -214,7 +393,10 @@ const UsersProduct: React.FC = () => {
                       <span className={p.reported ? "text-red-600 font-medium" : "text-slate-500"}>{p.reported ? "Yes" : "No"}</span>
                     </td>
                     <td className="py-3 px-2 text-right">
-                      <button className={removeBtn} onClick={() => alert(`Remove ${p.id}`)}>
+                      <button className={removeBtn} onClick={() => {
+                        setSelectedProduct(p);
+                        setIsDeleteOpen(true);
+                      }}>
                         Remove
                       </button>
                     </td>
@@ -253,6 +435,17 @@ const UsersProduct: React.FC = () => {
           </div>
         </div>
       </div>
+      <DeleteProductModal
+        open={isDeleteOpen}
+        product={selectedProduct}
+        isLoading={isDeleting}
+        onClose={() => {
+          if (isDeleting) return;
+          setIsDeleteOpen(false);
+          setSelectedProduct(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 };

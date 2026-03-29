@@ -123,15 +123,9 @@ export default async function sendMessageController(req, res) {
 
 		res.status(201).json(createdMessage);
 
-		// Broadcast to WebSocket participants in conversation room
+		// Broadcast to WebSocket participants
 		const io = req.app.get('io');
 		broadcastNewMessage(io, parseInt(conversationId), createdMessage.toJSON());
-
-		// Notify other participants via user rooms (ensures badge update even for new conversations)
-		const recipientIds = otherParticipants
-			.map((entry) => Number(entry.user_id))
-			.filter((uid) => uid > 0 && uid !== Number(userId));
-		notifyUserNewMessage(io, recipientIds, createdMessage.toJSON());
 	} catch (error) {
 		console.error('Error sending message:', error);
 		res.status(500).json({

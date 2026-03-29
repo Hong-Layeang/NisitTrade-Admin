@@ -74,7 +74,7 @@ export default async function getAllUsersController(req, res) {
             raw: true,
           })
         : Promise.resolve([]),
-      userIds.length
+      userIds.length && Rating
         ? Rating.findAll({
             where: { seller_id: { [Op.in]: userIds } },
             attributes: [

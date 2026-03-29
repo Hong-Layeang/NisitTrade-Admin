@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type Category = "Electronic" | "Clothing" | "Accessory";
+type Category = string;
 
 export type AddProductPayload = {
   title: string;
@@ -8,25 +8,26 @@ export type AddProductPayload = {
   category: Category;
   price: number;
   imageFile?: File | null;
+  s3Key?: string; // S3 key after upload
 };
 
 type Props = {
   open: boolean;
+  categories: Category[];
   onClose: () => void;
   onSubmit: (data: AddProductPayload) => void;
 };
 
-const categories: Category[] = ["Electronic", "Clothing", "Accessory"];
-
-const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
+const AddProductModal: React.FC<Props> = ({ open, categories = [], onClose, onSubmit }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const btnCloseRef = useRef<HTMLButtonElement | null>(null);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [category, setCategory] = useState<Category>("Clothing");
+  const [category, setCategory] = useState<Category>(categories?.[0] || "");
   const [price, setPrice] = useState<string>("");
   const [image, setImage] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const preview = useMemo(() => (image ? URL.createObjectURL(image) : ""), [image]);
 
   // Reset form when open toggles from false -> true
@@ -34,11 +35,19 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
     if (open) {
       setTitle("");
       setDesc("");
-      setCategory("Clothing");
+      setCategory(categories[0] || "");
       setPrice("");
       setImage(null);
+      setIsUploading(false);
     }
-  }, [open]);
+  }, [open, categories]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!category && categories.length > 0) {
+      setCategory(categories[0]);
+    }
+  }, [open, categories, category]);
 
   // Close on ESC / click outside
   useEffect(() => {
@@ -58,12 +67,26 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
 
   const priceNumber = Number(price);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // simple validation
     if (!title.trim()) return alert("Product title is required");
     if (!category) return alert("Category is required");
     if (!price || isNaN(priceNumber) || priceNumber < 0) return alert("Enter a valid price");
+
+    let s3Key: string | undefined;
+
+    // If image is selected, upload it first
+    if (image) {
+      try {
+        setIsUploading(true);
+        s3Key = await uploadImageToS3(image);
+      } catch (error) {
+        alert("Failed to upload image: " + (error instanceof Error ? error.message : String(error)));
+        setIsUploading(false);
+        return;
+      }
+    }
 
     onSubmit({
       title: title.trim(),
@@ -71,7 +94,39 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
       category,
       price: priceNumber,
       imageFile: image,
+      s3Key,
     });
+  };
+
+  const uploadImageToS3 = async (file: File): Promise<string> => {
+    try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:4001";
+      const token = localStorage.getItem("token") || localStorage.getItem("admin_token");
+
+      // Create form data with the image file
+      const formData = new FormData();
+      formData.append("image", file);
+
+      // Upload to backend, which will then upload to S3
+      const uploadRes = await fetch(`${API_BASE_URL}/api/presigned-url/upload-image`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to upload image");
+      }
+
+      const { s3Key } = await uploadRes.json();
+      return s3Key;
+    } catch (error) {
+      console.error("Error uploading to S3:", error);
+      throw error;
+    }
   };
 
   if (!open) return null;
@@ -99,6 +154,7 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
             onClick={onClose}
             aria-label="Close"
             title="Close"
+            disabled={isUploading}
           >
             <i className="bi bi-arrow-left" />
           </button>
@@ -120,7 +176,8 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter your product title"
-                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                disabled={isUploading}
+                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-50"
               />
             </div>
 
@@ -134,7 +191,8 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Enter the description"
                 rows={5}
-                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                disabled={isUploading}
+                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-50"
               />
             </div>
 
@@ -185,7 +243,8 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Category)}
-                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                disabled={isUploading}
+                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-50"
               >
                 {categories.map((c) => (
                   <option key={c} value={c}>
@@ -209,7 +268,8 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
                   onChange={(e) => setPrice(e.target.value)}
                   inputMode="decimal"
                   placeholder="0.00"
-                  className="h-10 flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                  disabled={isUploading}
+                  className="h-10 flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-brand/50 disabled:opacity-50"
                 />
               </div>
             </div>
@@ -218,9 +278,11 @@ const AddProductModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
             <div className="pt-2">
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:opacity-95"
+                disabled={isUploading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add Product
+                {isUploading && <i className="bi bi-hourglass-split animate-spin" />}
+                {isUploading ? "Uploading..." : "Add Product"}
               </button>
             </div>
           </div>
