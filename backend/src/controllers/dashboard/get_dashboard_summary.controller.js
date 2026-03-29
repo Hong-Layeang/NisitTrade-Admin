@@ -25,8 +25,9 @@ export default async function getDashboardSummaryController(req, res) {
       usersCount,
       totalUserProduct,
       remainingListing,
-      productSold,
       soldProducts,
+      productSoldAdmin,
+      soldProductsAdmin,
       recentActivities,
     ] = await Promise.all([
       User.count({ where: { role: 'user' } }),
@@ -38,10 +39,19 @@ export default async function getDashboardSummaryController(req, res) {
           status: { [Op.notIn]: ['sold', 'hidden'] },
         },
       }),
-      Product.count({ where: { status: 'sold' } }),
       Product.findAll({
         where: { status: 'sold' },
         attributes: ['price', 'created_at'],
+        raw: true,
+      }),
+      Product.count({
+        where: { status: 'sold' },
+        include: [{ model: User, attributes: [], where: { role: 'admin' }, required: true }],
+      }),
+      Product.findAll({
+        where: { status: 'sold' },
+        attributes: ['price', 'created_at'],
+        include: [{ model: User, attributes: [], where: { role: 'admin' }, required: true }],
         raw: true,
       }),
       ActivityLog.findAll({
@@ -91,7 +101,7 @@ export default async function getDashboardSummaryController(req, res) {
       };
     });
 
-    soldProducts.forEach((row) => {
+    soldProductsAdmin.forEach((row) => {
       const createdAt = new Date(row.created_at);
       const key = `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
       const bucket = monthBuckets.find((entry) => entry.key === key);
@@ -114,7 +124,7 @@ export default async function getDashboardSummaryController(req, res) {
         revenue,
         totalUserProduct,
         remainingListing,
-        productSold,
+        productSold: productSoldAdmin,
       },
       income: {
         todayIncome,
