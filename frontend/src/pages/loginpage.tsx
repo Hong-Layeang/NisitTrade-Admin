@@ -50,9 +50,9 @@ const LoginPage: React.FC = () => {
         </button>
 
         <div className="mt-4 text-xs text-slate-400 space-x-2">
-          <a href="#" className="hover:underline">Terms of use</a>
+          <span>Terms of use</span>
           <span>|</span>
-          <a href="#" className="hover:underline">Privacy policy</a>
+          <span>Privacy policy</span>
         </div>
       </div>
 

@@ -105,7 +105,7 @@ const LoginFormModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
         </div>
 
         {/* Options */}
-        <div className="mb-6 flex items-center justify-between text-sm">
+        <div className="mb-6 flex items-center text-sm">
           <label className="flex items-center gap-2 text-slate-500">
             <input
               type="checkbox"
@@ -115,10 +115,6 @@ const LoginFormModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
             />
             I accept the terms of service.
           </label>
-
-          <button className="text-brand hover:underline">
-            Forgot Password
-          </button>
         </div>
 
         {!!error && (

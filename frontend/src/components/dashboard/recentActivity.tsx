@@ -45,6 +45,7 @@ interface RecentActivityProps {
 
 const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
   const [showAll, setShowAll] = useState(false);
+  const previewActivities = activities.slice(0, 6);
 
   return (
     <>
@@ -64,7 +65,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
 
         {/* Scrollable list to keep card height fixed */}
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-gray-800">
-          {activities.map((activity, index) => {
+          {previewActivities.map((activity, index) => {
             const style = styleByType[activity.type];
             const icon = iconByType[activity.type];
             return (

@@ -103,7 +103,7 @@ const Dashboard: React.FC = () => {
           incomeGrowth: parseNumber(summaryIncome.incomeGrowth),
         });
         setSalesData(salesOverviewData);
-        setActivities(mappedActivities.slice(0, 6));
+        setActivities(mappedActivities);
       } catch (error) {
         if (!isMounted) return;
         setLoadError(error instanceof Error ? error.message : "Failed to load dashboard data");
