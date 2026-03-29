@@ -42,7 +42,16 @@ type PresignedUrlResponse = {
   expiresIn?: number;
 };
 
+type ShopProduct = Product & {
+  ownerRole?: string;
+};
+
 const FALLBACK_CATEGORIES: Category[] = ["Electronic", "Clothing", "Accessory"];
+
+function formatProductId(id: number, ownerRole?: string): string {
+  const prefix = ownerRole === "admin" ? "AP" : "UP";
+  return `${prefix}${id}`;
+}
 
 function parseNumber(value: unknown, fallback = 0): number {
   const parsed = Number(value);
@@ -74,7 +83,7 @@ async function toRenderableImageUrl(imageUrl?: string): Promise<string | undefin
 }
 
 const AdminShop: React.FC = () => {
-  const [rows, setRows] = useState<Product[]>([]);
+  const [rows, setRows] = useState<ShopProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [categoryIdByName, setCategoryIdByName] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -120,7 +129,7 @@ const AdminShop: React.FC = () => {
           })
           .filter(Boolean);
 
-        const mappedProducts: Product[] = (Array.isArray(productsResponse) ? productsResponse : [])
+        const mappedProducts: ShopProduct[] = (Array.isArray(productsResponse) ? productsResponse : [])
           .filter((item) => !item?.User?.role || item.User.role === "admin")
           .map((item) => ({
             id: parseNumber(item.id),
@@ -130,6 +139,7 @@ const AdminShop: React.FC = () => {
             status: mapBackendStatusToUi(item.status),
             createdAt: item.created_at || item.createdAt || "",
             ProductImages: item.ProductImages || [],
+            ownerRole: item.User?.role,
           }));
 
         setCategoryIdByName(categoryMap);
@@ -163,8 +173,8 @@ const AdminShop: React.FC = () => {
 
     data.sort((a, b) => {
       switch (sortBy) {
-        case "newest": return +new Date(b.createdAt) - +new Date(a.createdAt);
-        case "oldest": return +new Date(a.createdAt) - +new Date(b.createdAt);
+        case "newest": return b.id - a.id;
+        case "oldest": return a.id - b.id;
         case "price-asc": return a.price - b.price;
         case "price-desc": return b.price - a.price;
         case "title-asc": return a.title.localeCompare(b.title);
@@ -236,7 +246,7 @@ const AdminShop: React.FC = () => {
         }))
       );
 
-      const newRow: Product = {
+      const newRow: ShopProduct = {
         id: parseNumber(created?.id),
         title: created?.title || data.title,
         category: created?.Category?.name || data.category,
@@ -244,6 +254,7 @@ const AdminShop: React.FC = () => {
         status: mapBackendStatusToUi(created?.status),
         createdAt: created?.created_at || created?.createdAt || new Date().toISOString(),
         ProductImages: optimisticImages,
+        ownerRole: "admin",
       };
 
       setRows((prev) => [newRow, ...prev]);
@@ -284,7 +295,7 @@ const AdminShop: React.FC = () => {
         }))
       );
 
-      const nextRow: Product = {
+      const nextRow: ShopProduct = {
         id: parseNumber(saved?.id, updated.id),
         title: saved?.title || updated.title,
         category: saved?.Category?.name || updated.category,
@@ -292,6 +303,7 @@ const AdminShop: React.FC = () => {
         status: mapBackendStatusToUi(saved?.status),
         createdAt: saved?.created_at || saved?.createdAt || updated.createdAt,
         ProductImages: nextImages,
+        ownerRole: saved?.User?.role,
       };
 
       setRows((prev) => prev.map((r) => (r.id === updated.id ? nextRow : r)));
@@ -439,10 +451,11 @@ const AdminShop: React.FC = () => {
                   : "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/20 dark:text-red-300";
                 const primaryImageUrl = p.ProductImages?.[0]?.image_url || "";
                 const hasRenderableImage = /^https?:\/\//i.test(primaryImageUrl);
+                const displayId = formatProductId(p.id, p.ownerRole);
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                    <td className="py-3 px-2">{p.id}</td>
+                    <td className="py-3 px-2" title={`Database ID: ${p.id}`}>{displayId}</td>
                     <td className="py-3 px-2">
                       {hasRenderableImage ? (
                         <img

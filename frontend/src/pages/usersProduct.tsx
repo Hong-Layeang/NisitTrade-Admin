@@ -61,6 +61,10 @@ type ApiCategory = {
 
 type SortBy = "newest" | "oldest" | "price-asc" | "price-desc" | "title-asc" | "reported-first";
 
+function formatUserProductId(id: number): string {
+  return `UP${id}`;
+}
+
 const UsersProduct: React.FC = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"All" | Category>("All");
@@ -360,9 +364,10 @@ const UsersProduct: React.FC = () => {
               {visible.map((p) => {
                 const redTxt = p.reported ? "text-red-600" : "";
                 const redPrice = p.reported ? "text-red-600" : "text-slate-900 dark:text-slate-100";
+                const displayProductId = formatUserProductId(p.id);
                 return (
                   <tr key={p.id} className="border-b last:border-b-0 border-slate-100 dark:border-gray-800">
-                    <td className={`py-3 px-2 tabular-nums ${redTxt}`}>{p.id}</td>
+                    <td className={`py-3 px-2 tabular-nums ${redTxt}`} title={`Database ID: ${p.id}`}>{displayProductId}</td>
                     <td className="py-3 px-2">
                       {p.ProductImages && p.ProductImages.length > 0 ? (
                         <img
